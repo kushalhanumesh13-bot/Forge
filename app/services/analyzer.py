@@ -14,6 +14,15 @@ class RepositoryAnalyzer:
         test_files = 0
         other_files = 0
         directories = set()
+        metadata_files = []
+        metadata_names = {
+            "requirements.txt",
+            "pyproject.toml",
+            "package.json",
+            "README.md",
+            "Dockerfile",
+            ".gitignore",
+        }
 
         for path in files:
             relative_path = path.relative_to(self.repository.root_path)
@@ -33,6 +42,10 @@ class RepositoryAnalyzer:
             if "test" in path.name.lower():
                 test_files += 1
 
+            if path.name in metadata_names:
+                    metadata_files.append(str(path.relative_to(self.repository.root_path)))
+
+
         project_type = self._detect_project_type(
             python_files=python_files,
             javascript_files=javascript_files,
@@ -51,6 +64,7 @@ class RepositoryAnalyzer:
             "project_type": project_type,
             "has_tests": test_files > 0,
             "directories": sorted(directories),
+            "metadata_files": sorted(metadata_files),
         }
 
     def _detect_project_type(
