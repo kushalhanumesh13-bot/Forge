@@ -4,6 +4,7 @@ from pathlib import Path
 IGNORED_DIRECTORIES = {
     ".git",
     ".venv",
+    "Git",
     "node_modules",
     "__pycache__",
 }
