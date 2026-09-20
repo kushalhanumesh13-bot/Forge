@@ -16,9 +16,12 @@ def test_analyze_counts_file_types(tmp_path: Path):
 
     result = analyzer.analyze()
 
-    assert result["total_files"] == 5
-    assert result["python_files"] == 3
-    assert result["javascript_files"] == 1
-    assert result["typescript_files"] == 1
-    assert result["test_files"] == 1
-    assert result["other_files"] == 0
+    assert result["summary"]["total_files"] == 5
+    assert result["summary"]["python_files"] == 3
+    assert result["summary"]["javascript_files"] == 1
+    assert result["summary"]["typescript_files"] == 1
+    assert result["summary"]["test_files"] == 1
+    assert result["summary"]["other_files"] == 0
+
+    assert result["project_type"] == "python"
+    assert result["has_tests"] is True

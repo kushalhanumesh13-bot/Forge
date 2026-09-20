@@ -27,11 +27,38 @@ class RepositoryAnalyzer:
             if "test" in path.name.lower():
                 test_files += 1
 
+        project_type = self._detect_project_type(
+            python_files=python_files,
+            javascript_files=javascript_files,
+            typescript_files=typescript_files,
+        )
+
         return {
-            "total_files": len(files),
-            "python_files": python_files,
-            "javascript_files": javascript_files,
-            "typescript_files": typescript_files,
-            "test_files": test_files,
-            "other_files": other_files,
+            "summary": {
+                "total_files": len(files),
+                "python_files": python_files,
+                "javascript_files": javascript_files,
+                "typescript_files": typescript_files,
+                "test_files": test_files,
+                "other_files": other_files,
+            },
+            "project_type": project_type,
+            "has_tests": test_files > 0,
         }
+
+    def _detect_project_type(
+        self,
+        python_files: int,
+        javascript_files: int,
+        typescript_files: int,
+    ) -> str:
+        if python_files > 0:
+            return "python"
+
+        if typescript_files > 0:
+            return "typescript"
+
+        if javascript_files > 0:
+            return "javascript"
+
+        return "unknown"
