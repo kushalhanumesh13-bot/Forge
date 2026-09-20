@@ -7,6 +7,7 @@ IGNORED_DIRECTORIES = {
     "Git",
     "node_modules",
     "__pycache__",
+    ".pytest_cache",
 }
 
 IGNORED_FILES = {

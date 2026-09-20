@@ -5,11 +5,14 @@ from app.services.repository import RepositoryService
 
 
 def test_analyze_counts_file_types(tmp_path: Path):
-    (tmp_path / "main.py").write_text("")
-    (tmp_path / "app.py").write_text("")
-    (tmp_path / "script.js").write_text("")
-    (tmp_path / "types.ts").write_text("")
-    (tmp_path / "test_main.py").write_text("")
+    (tmp_path / "app").mkdir()
+    (tmp_path / "tests").mkdir()
+
+    (tmp_path / "app" / "main.py").write_text("")
+    (tmp_path / "app" / "app.py").write_text("")
+    (tmp_path / "app" / "script.js").write_text("")
+    (tmp_path / "app" / "types.ts").write_text("")
+    (tmp_path / "tests" / "test_main.py").write_text("")
 
     repository = RepositoryService(root_path=tmp_path)
     analyzer = RepositoryAnalyzer(repository)
@@ -25,3 +28,4 @@ def test_analyze_counts_file_types(tmp_path: Path):
 
     assert result["project_type"] == "python"
     assert result["has_tests"] is True
+    assert result["directories"] == ["app", "tests"]

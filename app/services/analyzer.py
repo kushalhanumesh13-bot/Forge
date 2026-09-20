@@ -13,8 +13,14 @@ class RepositoryAnalyzer:
         typescript_files = 0
         test_files = 0
         other_files = 0
+        directories = set()
 
         for path in files:
+            relative_path = path.relative_to(self.repository.root_path)
+
+            if len(relative_path.parts) > 1:
+                directories.add(relative_path.parts[0])
+
             if path.suffix == ".py":
                 python_files += 1
             elif path.suffix == ".js":
@@ -44,6 +50,7 @@ class RepositoryAnalyzer:
             },
             "project_type": project_type,
             "has_tests": test_files > 0,
+            "directories": sorted(directories),
         }
 
     def _detect_project_type(
