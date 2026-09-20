@@ -1,1 +1,3 @@
 Git/
+.venv/
+__pycache__/
