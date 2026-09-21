@@ -2,6 +2,7 @@ import ast
 import json
 import re
 import subprocess
+import sys
 import tomllib
 
 from app.services.repository import RepositoryService
@@ -27,6 +28,7 @@ class RepositoryAnalyzer:
         lockfiles = []
         entry_points = set()
         configurations = set()
+        imports = {}
         git_info = self._analyze_git()
 
         readme_info = {
@@ -70,6 +72,8 @@ class RepositoryAnalyzer:
             "package.json": "JavaScript/Node.js",
             "Dockerfile": "Docker",
         }
+
+        python_module_roots = self._python_module_roots(files)
 
         for path in files:
             relative_path = path.relative_to(self.repository.root_path)
@@ -131,6 +135,14 @@ class RepositoryAnalyzer:
             if path.suffix in {".py", ".js", ".ts"}:
                 content = path.read_text(encoding="utf-8")
 
+                if path.suffix == ".py":
+                    imports[relative_path.as_posix()] = (
+                        self._analyze_python_imports(
+                            content,
+                            python_module_roots,
+                        )
+                    )
+
                 if path.suffix == ".py" and (
                     path.name in {"main.py", "__main__.py"}
                     or self._contains_python_main_guard(content)
@@ -174,7 +186,76 @@ class RepositoryAnalyzer:
             "configurations": sorted(configurations),
             "readme": readme_info,
             "git": git_info,
+            "imports": dict(sorted(imports.items())),
         }
+
+    def _python_module_roots(self, files: list) -> set[str]:
+        module_roots = set()
+
+        for path in files:
+            if path.suffix != ".py":
+                continue
+
+            relative_path = path.relative_to(self.repository.root_path)
+
+            if len(relative_path.parts) > 1:
+                module_roots.add(relative_path.parts[0])
+            elif path.stem != "__init__":
+                module_roots.add(path.stem)
+
+        return module_roots
+
+    def _analyze_python_imports(
+        self,
+        content: str,
+        local_module_roots: set[str],
+    ) -> dict:
+        result = {
+            "imports": [],
+            "standard_library": [],
+            "third_party": [],
+            "local_project": [],
+        }
+
+        try:
+            tree = ast.parse(content)
+        except (SyntaxError, UnicodeError):
+            return result
+
+        imported_modules = set()
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported_modules.update(
+                    alias.name
+                    for alias in node.names
+                )
+            elif isinstance(node, ast.ImportFrom):
+                module_name = node.module or ""
+                imported_modules.add(
+                    "." * node.level + module_name
+                )
+
+        standard_library = set()
+        third_party = set()
+        local_project = set()
+
+        for module_name in imported_modules:
+            root_name = module_name.lstrip(".").split(".", 1)[0]
+
+            if module_name.startswith(".") or root_name in local_module_roots:
+                local_project.add(module_name)
+            elif root_name in sys.stdlib_module_names:
+                standard_library.add(module_name)
+            else:
+                third_party.add(module_name)
+
+        result["imports"] = sorted(imported_modules)
+        result["standard_library"] = sorted(standard_library)
+        result["third_party"] = sorted(third_party)
+        result["local_project"] = sorted(local_project)
+
+        return result
 
     def _analyze_git(self) -> dict:
         result = {

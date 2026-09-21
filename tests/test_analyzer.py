@@ -81,6 +81,90 @@ def test_analyze_counts_file_types(tmp_path: Path):
     assert result["dependencies"] == []
     assert result["lockfiles"] == []
     assert result["entry_points"] == ["app/main.py"]
+    assert result["imports"]["app/main.py"] == {
+        "imports": [],
+        "standard_library": [],
+        "third_party": [],
+        "local_project": [],
+    }
+
+
+def test_analyze_detects_python_import_categories(tmp_path: Path):
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "main.py").write_text(
+        "import json\n"
+        "import os.path\n"
+        "import requests\n"
+        "import app.services.repository\n"
+        "from pathlib import Path\n"
+        "from requests import get\n"
+        "from app import helper\n"
+    )
+    (tmp_path / "app" / "helper.py").write_text("VALUE = 1\n")
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert result["imports"]["app/main.py"] == {
+        "imports": [
+            "app",
+            "app.services.repository",
+            "json",
+            "os.path",
+            "pathlib",
+            "requests",
+        ],
+        "standard_library": ["json", "os.path", "pathlib"],
+        "third_party": ["requests"],
+        "local_project": ["app", "app.services.repository"],
+    }
+
+
+def test_analyze_handles_nested_and_invalid_python_imports(tmp_path: Path):
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "nested.py").write_text(
+        "from pkg.submodule import value\n"
+        "from . import sibling\n"
+    )
+    (tmp_path / "broken.py").write_text(
+        "from valid import\n"
+    )
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert result["imports"]["pkg/nested.py"] == {
+        "imports": [".", "pkg.submodule"],
+        "standard_library": [],
+        "third_party": [],
+        "local_project": [".", "pkg.submodule"],
+    }
+    assert result["imports"]["broken.py"] == {
+        "imports": [],
+        "standard_library": [],
+        "third_party": [],
+        "local_project": [],
+    }
+
+
+def test_analyze_reports_empty_imports_for_python_files_without_imports(
+    tmp_path: Path,
+):
+    (tmp_path / "plain.py").write_text(
+        "# import os\n"
+        "message = 'import requests'\n"
+        "def helper():\n"
+        "    return True\n"
+    )
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert result["imports"] == {
+        "plain.py": {
+            "imports": [],
+            "standard_library": [],
+            "third_party": [],
+            "local_project": [],
+        }
+    }
 
 
 def test_analyze_detects_python_entry_points(tmp_path: Path):
