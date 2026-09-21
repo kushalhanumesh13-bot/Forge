@@ -29,6 +29,7 @@ class RepositoryAnalyzer:
         entry_points = set()
         configurations = set()
         imports = {}
+        code_structure = {}
         git_info = self._analyze_git()
 
         readme_info = {
@@ -142,6 +143,9 @@ class RepositoryAnalyzer:
                             python_module_roots,
                         )
                     )
+                    code_structure[relative_path.as_posix()] = (
+                        self._analyze_python_code_structure(content)
+                    )
 
                 if path.suffix == ".py" and (
                     path.name in {"main.py", "__main__.py"}
@@ -187,6 +191,7 @@ class RepositoryAnalyzer:
             "readme": readme_info,
             "git": git_info,
             "imports": dict(sorted(imports.items())),
+            "code_structure": dict(sorted(code_structure.items())),
         }
 
     def _python_module_roots(self, files: list) -> set[str]:
@@ -256,6 +261,132 @@ class RepositoryAnalyzer:
         result["local_project"] = sorted(local_project)
 
         return result
+
+    def _analyze_python_code_structure(self, content: str) -> dict:
+        result = {
+            "classes": [],
+            "functions": [],
+            "methods": [],
+            "constants": [],
+            "global_assignments": [],
+        }
+
+        try:
+            tree = ast.parse(content)
+        except (SyntaxError, UnicodeError):
+            return result
+
+        classes = []
+        functions = []
+        methods = []
+        global_assignments = []
+
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                classes.append(self._structure_definition(node))
+                self._collect_python_methods(
+                    node,
+                    node.name,
+                    methods,
+                )
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                functions.append(self._structure_definition(node))
+            elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                for name in self._assignment_names(node):
+                    global_assignments.append(
+                        {
+                            "name": name,
+                            "line": node.lineno,
+                        }
+                    )
+
+        constants = [
+            assignment
+            for assignment in global_assignments
+            if assignment["name"].isupper()
+        ]
+
+        result["classes"] = sorted(
+            classes,
+            key=lambda item: (item["line"], item["name"]),
+        )
+        result["functions"] = sorted(
+            functions,
+            key=lambda item: (item["line"], item["name"]),
+        )
+        result["methods"] = sorted(
+            methods,
+            key=lambda item: (item["line"], item["class"], item["name"]),
+        )
+        result["global_assignments"] = sorted(
+            global_assignments,
+            key=lambda item: (item["line"], item["name"]),
+        )
+        result["constants"] = sorted(
+            constants,
+            key=lambda item: (item["line"], item["name"]),
+        )
+
+        return result
+
+    def _structure_definition(self, node) -> dict:
+        return {
+            "name": node.name,
+            "line": node.lineno,
+            "async": isinstance(node, ast.AsyncFunctionDef),
+            "decorators": sorted(
+                self._decorator_name(decorator)
+                for decorator in node.decorator_list
+            ),
+        }
+
+    def _collect_python_methods(
+        self,
+        class_node: ast.ClassDef,
+        class_name: str,
+        methods: list[dict],
+    ) -> None:
+        for node in class_node.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                method = self._structure_definition(node)
+                method["class"] = class_name
+                methods.append(method)
+            elif isinstance(node, ast.ClassDef):
+                self._collect_python_methods(
+                    node,
+                    f"{class_name}.{node.name}",
+                    methods,
+                )
+
+    def _assignment_names(self, node) -> list[str]:
+        targets = []
+
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+            targets = [node.target]
+
+        names = []
+
+        def collect(target) -> None:
+            if isinstance(target, ast.Name):
+                names.append(target.id)
+            elif isinstance(target, (ast.Tuple, ast.List)):
+                for element in target.elts:
+                    collect(element)
+
+        for target in targets:
+            collect(target)
+
+        return names
+
+    def _decorator_name(self, decorator) -> str:
+        try:
+            return ast.unparse(decorator)
+        except (AttributeError, ValueError):
+            if isinstance(decorator, ast.Name):
+                return decorator.id
+            return type(decorator).__name__
 
     def _analyze_git(self) -> dict:
         result = {

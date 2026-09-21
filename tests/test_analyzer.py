@@ -167,6 +167,123 @@ def test_analyze_reports_empty_imports_for_python_files_without_imports(
     }
 
 
+def test_analyze_code_structure_detects_definitions_and_decorators(
+    tmp_path: Path,
+):
+    (tmp_path / "structure.py").write_text(
+        "CONSTANT = 42\n"
+        "value = 1\n"
+        "@decorator\n"
+        "def top_level(value):\n"
+        "    return value\n"
+        "\n"
+        "async def fetch_data():\n"
+        "    return None\n"
+        "\n"
+        "@dataclass\n"
+        "class Service:\n"
+        "    @staticmethod\n"
+        "    def build():\n"
+        "        return Service()\n"
+        "\n"
+        "    @classmethod\n"
+        "    async def load(cls):\n"
+        "        return cls()\n",
+        encoding="utf-8",
+    )
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert result["code_structure"]["structure.py"] == {
+        "classes": [
+            {
+                "name": "Service",
+                "line": 11,
+                "async": False,
+                "decorators": ["dataclass"],
+            }
+        ],
+        "functions": [
+            {
+                "name": "top_level",
+                "line": 4,
+                "async": False,
+                "decorators": ["decorator"],
+            },
+            {
+                "name": "fetch_data",
+                "line": 7,
+                "async": True,
+                "decorators": [],
+            },
+        ],
+        "methods": [
+            {
+                "name": "build",
+                "line": 13,
+                "async": False,
+                "decorators": ["staticmethod"],
+                "class": "Service",
+            },
+            {
+                "name": "load",
+                "line": 17,
+                "async": True,
+                "decorators": ["classmethod"],
+                "class": "Service",
+            },
+        ],
+        "constants": [{"name": "CONSTANT", "line": 1}],
+        "global_assignments": [
+            {"name": "CONSTANT", "line": 1},
+            {"name": "value", "line": 2},
+        ],
+    }
+
+
+def test_analyze_code_structure_supports_multiple_files(tmp_path: Path):
+    (tmp_path / "first.py").write_text("class First:\n    pass\n")
+    (tmp_path / "second.py").write_text(
+        "def second():\n    return True\n"
+    )
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert list(result["code_structure"]) == ["first.py", "second.py"]
+    assert result["code_structure"]["first.py"]["classes"][0]["name"] == "First"
+    assert result["code_structure"]["second.py"]["functions"][0]["name"] == "second"
+
+
+def test_analyze_code_structure_handles_invalid_python(tmp_path: Path):
+    (tmp_path / "broken.py").write_text("def broken(:\n    pass\n")
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert result["code_structure"]["broken.py"] == {
+        "classes": [],
+        "functions": [],
+        "methods": [],
+        "constants": [],
+        "global_assignments": [],
+    }
+
+
+def test_analyze_code_structure_handles_empty_python_file(tmp_path: Path):
+    (tmp_path / "empty.py").write_text("")
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert result["code_structure"] == {
+        "empty.py": {
+            "classes": [],
+            "functions": [],
+            "methods": [],
+            "constants": [],
+            "global_assignments": [],
+        }
+    }
+
+
 def test_analyze_detects_python_entry_points(tmp_path: Path):
     (tmp_path / "main.py").write_text("print('main')")
     (tmp_path / "cli.py").write_text(
