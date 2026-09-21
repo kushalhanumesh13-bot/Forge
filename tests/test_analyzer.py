@@ -87,6 +87,102 @@ def test_analyze_counts_file_types(tmp_path: Path):
         "third_party": [],
         "local_project": [],
     }
+    assert result["architecture"]["style"] == "unknown"
+
+
+def test_analyze_detects_forge_layered_backend_structure(tmp_path: Path):
+    (tmp_path / "app" / "api").mkdir(parents=True)
+    (tmp_path / "app" / "services").mkdir(parents=True)
+    (tmp_path / "tests").mkdir()
+
+    (tmp_path / "app" / "__init__.py").write_text("")
+    (tmp_path / "app" / "api" / "routes.py").write_text(
+        "from fastapi import APIRouter\n\nrouter = APIRouter()\n"
+    )
+    (tmp_path / "app" / "services" / "repository.py").write_text(
+        "class Repository:\n    def get(self):\n        return None\n"
+    )
+    (tmp_path / "app" / "services" / "analyzer.py").write_text(
+        "class Analyzer:\n    def analyze(self):\n        return {}\n"
+    )
+    (tmp_path / "app" / "main.py").write_text(
+        "from app.api.routes import router\n"
+    )
+    (tmp_path / "tests" / "test_routes.py").write_text("")
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert result["architecture"]["style"] == "layered"
+    assert result["architecture"]["layers"] == [
+        "api",
+        "repository",
+        "services",
+        "tests",
+    ]
+    assert result["architecture"]["components"] == [
+        "backend",
+        "python_package",
+    ]
+    assert result["architecture"]["evidence"]
+
+
+def test_analyze_detects_frontend_backend_separation(tmp_path: Path):
+    (tmp_path / "backend").mkdir()
+    (tmp_path / "frontend").mkdir()
+    (tmp_path / "backend" / "main.py").write_text(
+        "from fastapi import FastAPI\napp = FastAPI()\n"
+    )
+    (tmp_path / "frontend" / "app.ts").write_text(
+        "export const app = {};\n"
+    )
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert result["architecture"]["style"] == "frontend-backend"
+    assert result["architecture"]["components"] == [
+        "backend",
+        "frontend",
+    ]
+
+
+def test_analyze_detects_test_and_configuration_layers(tmp_path: Path):
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_app.py").write_text("def test_app(): pass\n")
+    (tmp_path / "pytest.ini").write_text("[pytest]\n")
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert result["architecture"]["style"] == "unknown"
+    assert result["architecture"]["layers"] == [
+        "configuration",
+        "tests",
+    ]
+
+
+def test_analyze_reports_unknown_architecture_for_minimal_repository(tmp_path: Path):
+    (tmp_path / "api").mkdir()
+    (tmp_path / "api" / "notes.txt").write_text("not source code")
+    (tmp_path / "README.md").write_text("Minimal repository\n")
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert result["architecture"] == {
+        "style": "unknown",
+        "layers": [],
+        "components": [],
+        "evidence": [],
+    }
+
+
+def test_analyze_architecture_is_deterministic(tmp_path: Path):
+    (tmp_path / "services").mkdir()
+    (tmp_path / "services" / "service.py").write_text(
+        "class Service:\n    pass\n"
+    )
+
+    analyzer = RepositoryAnalyzer(RepositoryService(tmp_path))
+
+    assert analyzer.analyze()["architecture"] == analyzer.analyze()["architecture"]
 
 
 def test_analyze_detects_python_import_categories(tmp_path: Path):

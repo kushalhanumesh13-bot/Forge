@@ -30,6 +30,7 @@ class RepositoryAnalyzer:
         configurations = set()
         imports = {}
         code_structure = {}
+        architecture = {}
         git_info = self._analyze_git()
 
         readme_info = {
@@ -169,6 +170,19 @@ class RepositoryAnalyzer:
             typescript_files=typescript_files,
         )
 
+        architecture = self._detect_architecture(
+            files=files,
+            frameworks=frameworks,
+            entry_points=entry_points,
+            configurations=configurations,
+            imports=imports,
+            code_structure=code_structure,
+            test_files=test_files,
+            python_files=python_files,
+            javascript_files=javascript_files,
+            typescript_files=typescript_files,
+        )
+
         return {
             "summary": {
                 "total_files": len(files),
@@ -192,6 +206,168 @@ class RepositoryAnalyzer:
             "git": git_info,
             "imports": dict(sorted(imports.items())),
             "code_structure": dict(sorted(code_structure.items())),
+            "architecture": architecture,
+        }
+
+    def _detect_architecture(
+        self,
+        files: list,
+        frameworks: set[str],
+        entry_points: set[str],
+        configurations: set[str],
+        imports: dict,
+        code_structure: dict,
+        test_files: int,
+        python_files: int,
+        javascript_files: int,
+        typescript_files: int,
+    ) -> dict:
+        layers = set()
+        components = set()
+        evidence = []
+
+        source_paths = {
+            path.relative_to(self.repository.root_path).as_posix(): path
+            for path in files
+            if path.suffix in {".py", ".js", ".ts"}
+        }
+
+        def paths_with_component(names: set[str]) -> list[str]:
+            return sorted(
+                path
+                for path in source_paths
+                if any(
+                    part.lower() in names
+                    for part in (
+                        path.split("/")
+                        + [source_paths[path].stem]
+                    )
+                )
+            )
+
+        api_paths = paths_with_component({"api", "routes", "routers", "controllers"})
+        service_paths = paths_with_component({"service", "services"})
+        repository_paths = paths_with_component(
+            {"repository", "repositories", "data", "persistence", "dao"}
+        )
+        test_paths = sorted(
+            path
+            for path in source_paths
+            if "test" in source_paths[path].name.lower()
+            or "tests" in {part.lower() for part in path.split("/")}
+        )
+        frontend_paths = sorted(
+            path
+            for path in source_paths
+            if any(
+                part.lower() in {"frontend", "client", "web", "ui"}
+                for part in path.split("/")
+            )
+        )
+        backend_paths = sorted(
+            path
+            for path in source_paths
+            if any(
+                part.lower() in {"backend", "server"}
+                for part in path.split("/")
+            )
+        )
+
+        api_signal = bool(api_paths) and (
+            bool(frameworks & {"FastAPI", "Django", "Flask"})
+            or any(imports.get(path, {}).get("imports") for path in api_paths)
+        )
+        service_signal = bool(service_paths) and any(
+            code_structure.get(path, {}).get("classes")
+            or code_structure.get(path, {}).get("functions")
+            for path in service_paths
+        )
+        repository_signal = bool(repository_paths) and any(
+            code_structure.get(path, {}).get("classes")
+            or code_structure.get(path, {}).get("functions")
+            or code_structure.get(path, {}).get("methods")
+            for path in repository_paths
+        )
+
+        if api_signal:
+            layers.add("api")
+            evidence.append(
+                "API source files have framework or import evidence: "
+                + ", ".join(api_paths)
+            )
+
+        if service_signal:
+            layers.add("services")
+            evidence.append(
+                "Service source files contain detected classes or functions: "
+                + ", ".join(service_paths)
+            )
+
+        if repository_signal:
+            layers.add("repository")
+            evidence.append(
+                "Repository/data-access source files contain detected code: "
+                + ", ".join(repository_paths)
+            )
+
+        if test_files > 0 and test_paths:
+            layers.add("tests")
+            evidence.append(
+                "Test source files were detected: " + ", ".join(test_paths)
+            )
+
+        if configurations:
+            layers.add("configuration")
+            evidence.append(
+                "Recognized configuration files were detected: "
+                + ", ".join(sorted(configurations))
+            )
+
+        has_python_package = python_files >= 2 and any(
+            path.name == "__init__.py"
+            for path in source_paths.values()
+        )
+        if has_python_package:
+            components.add("python_package")
+            evidence.append(
+                "Multiple Python files include package initializer files"
+            )
+
+        has_backend = bool(backend_paths) or bool(
+            python_files and (api_signal or service_signal or repository_signal)
+        )
+        has_frontend = bool(frontend_paths) and bool(
+            javascript_files or typescript_files
+        )
+
+        if has_backend:
+            components.add("backend")
+        if has_frontend:
+            components.add("frontend")
+
+        if has_frontend and has_backend:
+            style = "frontend-backend"
+            evidence.append(
+                "Separate frontend and backend source areas have language evidence"
+            )
+        elif len(layers & {"api", "services", "repository"}) >= 2:
+            style = "layered"
+            evidence.append(
+                "Multiple application layers have independent code evidence"
+            )
+        elif has_backend and entry_points:
+            style = "monolithic"
+            evidence.append(
+                "Backend application code and entry-point candidates are present"
+            )
+        else:
+            style = "unknown"
+
+        return {
+            "style": style,
+            "layers": sorted(layers),
+            "components": sorted(components),
+            "evidence": sorted(evidence),
         }
 
     def _python_module_roots(self, files: list) -> set[str]:
