@@ -15,6 +15,8 @@ class RepositoryAnalyzer:
         other_files = 0
         directories = set()
         metadata_files = []
+        technologies = set()
+
         metadata_names = {
             "requirements.txt",
             "pyproject.toml",
@@ -22,6 +24,13 @@ class RepositoryAnalyzer:
             "README.md",
             "Dockerfile",
             ".gitignore",
+        }
+
+        technology_names = {
+            "requirements.txt": "Python",
+            "pyproject.toml": "Python",
+            "package.json": "JavaScript/Node.js",
+            "Dockerfile": "Docker",
         }
 
         for path in files:
@@ -43,9 +52,16 @@ class RepositoryAnalyzer:
                 test_files += 1
 
             if path.name in metadata_names:
-                    metadata_files.append(str(path.relative_to(self.repository.root_path)))
+                metadata_files.append(str(relative_path))
 
+                if path.name in technology_names:
+                    technologies.add(technology_names[path.name])
 
+            if path.suffix == ".py":
+                content = path.read_text(encoding="utf-8")
+
+                if "from fastapi import" in content or "import fastapi" in content:
+                    technologies.add("FastAPI")
         project_type = self._detect_project_type(
             python_files=python_files,
             javascript_files=javascript_files,
@@ -65,6 +81,7 @@ class RepositoryAnalyzer:
             "has_tests": test_files > 0,
             "directories": sorted(directories),
             "metadata_files": sorted(metadata_files),
+            "technologies": sorted(technologies),
         }
 
     def _detect_project_type(
