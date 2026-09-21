@@ -76,6 +76,7 @@ def test_analyze_counts_file_types(tmp_path: Path):
         "Next.js",
         "React",
     ]
+
     assert result["dependencies"] == []
     assert result["lockfiles"] == []
     assert result["entry_points"] == ["app/main.py"]
@@ -86,8 +87,10 @@ def test_analyze_detects_python_entry_points(tmp_path: Path):
     (tmp_path / "cli.py").write_text(
         "if __name__ == '__main__':\n    print('cli')\n"
     )
+
     (tmp_path / "package").mkdir()
     (tmp_path / "package" / "__main__.py").write_text("print('package')")
+
     (tmp_path / "not_entry.py").write_text(
         "message = \"if __name__ == '__main__':\"\n"
         "# if __name__ == '__main__':\n"
@@ -105,18 +108,20 @@ def test_analyze_detects_python_entry_points(tmp_path: Path):
 def test_analyze_detects_existing_package_entry_points(tmp_path: Path):
     (tmp_path / "src").mkdir()
     (tmp_path / "bin").mkdir()
+
     (tmp_path / "src" / "index.js").write_text("")
     (tmp_path / "src" / "module.js").write_text("")
     (tmp_path / "bin" / "cli.js").write_text("")
     (tmp_path / "feature.js").write_text("")
+
     (tmp_path / "package.json").write_text(
-        '{'
+        "{"
         '"main": "src/index.js", '
         '"module": "src/index.js", '
         '"bin": {"forge": "bin/cli.js"}, '
         '"exports": {".": {"import": "src/module.js"}, '
         '"./feature": "feature.js"}'
-        '}'
+        "}"
     )
 
     result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
@@ -132,7 +137,10 @@ def test_analyze_detects_existing_package_entry_points(tmp_path: Path):
 def test_analyze_normalizes_windows_package_entry_point_paths(tmp_path: Path):
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "main.js").write_text("")
-    (tmp_path / "package.json").write_text(r'{"main": "src\\main.js"}')
+
+    (tmp_path / "package.json").write_text(
+        r'{"main": "src\\\\main.js"}'
+    )
 
     result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
 
@@ -143,6 +151,7 @@ def test_analyze_ignores_nonexistent_and_malformed_package_entry_points(
     tmp_path: Path,
 ):
     (tmp_path / "real.js").write_text("")
+
     (tmp_path / "package.json").write_text(
         '{"main": "real.js", "module": "missing.js", '
         '"bin": {"tool": "missing-cli.js"}, '
@@ -154,6 +163,7 @@ def test_analyze_ignores_nonexistent_and_malformed_package_entry_points(
     assert result["entry_points"] == ["real.js"]
 
     (tmp_path / "package.json").write_text("not json")
+
     result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
 
     assert result["entry_points"] == []
@@ -161,7 +171,9 @@ def test_analyze_ignores_nonexistent_and_malformed_package_entry_points(
 
 def test_analyze_reports_no_entry_points(tmp_path: Path):
     (tmp_path / "README.md").write_text("No executable entry point here")
-    (tmp_path / "utility.py").write_text("def helper():\n    return True\n")
+    (tmp_path / "utility.py").write_text(
+        "def helper():\n    return True\n"
+    )
     (tmp_path / "package.json").write_text('{"name": "library"}')
 
     result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
@@ -177,17 +189,20 @@ def test_analyze_detects_dependencies_and_lockfiles(tmp_path: Path):
         "-r base.txt\n"
         "git+https://example.com/lib.git#egg=editable-lib\n"
     )
+
     (tmp_path / "pyproject.toml").write_text(
         "[project]\n"
         "dependencies = ['pydantic>=2', 'httpx']\n"
         "[project.optional-dependencies]\n"
         "dev = ['pytest']\n"
     )
+
     (tmp_path / "package.json").write_text(
         '{"dependencies": {"react": "^18"}, '
         '"devDependencies": {"typescript": "^5"}, '
         '"peerDependencies": {"next": "^14"}}'
     )
+
     (tmp_path / "package-lock.json").write_text("{}")
     (tmp_path / "poetry.lock").write_text("not parsed yet")
 
@@ -204,9 +219,17 @@ def test_analyze_detects_dependencies_and_lockfiles(tmp_path: Path):
         "requests",
         "typescript",
     ]
-    assert result["lockfiles"] == ["package-lock.json", "poetry.lock"]
+
+    assert result["lockfiles"] == [
+        "package-lock.json",
+        "poetry.lock",
+    ]
+
     assert result["frameworks"] == []
-    assert result["technologies"] == ["JavaScript/Node.js", "Python"]
+    assert result["technologies"] == [
+        "JavaScript/Node.js",
+        "Python",
+    ]
 
 
 def test_analyze_ignores_invalid_dependency_manifests(tmp_path: Path):
@@ -238,7 +261,9 @@ def test_analyze_ignores_invalid_dependency_manifests(tmp_path: Path):
     ],
 )
 def test_detect_frameworks_supports_real_imports(
-    content: str, suffix: str, framework: str
+    content: str,
+    suffix: str,
+    framework: str,
 ):
     analyzer = RepositoryAnalyzer(repository=None)
 
@@ -260,8 +285,76 @@ def test_detect_frameworks_supports_real_imports(
     ],
 )
 def test_detect_frameworks_ignores_non_import_text_and_wrong_file_types(
-    content: str, suffix: str
+    content: str,
+    suffix: str,
 ):
     analyzer = RepositoryAnalyzer(repository=None)
 
     assert analyzer._detect_frameworks(content, suffix) == set()
+
+
+def test_detects_configuration_files(tmp_path: Path):
+    config_files = [
+        ".env.example",
+        ".env.template",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "compose.yml",
+        "compose.yaml",
+        "tsconfig.json",
+        "vite.config.js",
+        "vite.config.ts",
+        "webpack.config.js",
+        "webpack.config.ts",
+        "pytest.ini",
+        "tox.ini",
+        "ruff.toml",
+        ".mypy.ini",
+    ]
+
+    for filename in config_files:
+        (tmp_path / filename).write_text("", encoding="utf-8")
+
+    repository = RepositoryService(tmp_path)
+    analyzer = RepositoryAnalyzer(repository)
+    result = analyzer.analyze()
+
+    assert result["configurations"] == sorted(config_files)
+
+
+def test_detects_configuration_files_in_subdirectories(tmp_path: Path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+
+    (config_dir / "pytest.ini").write_text("", encoding="utf-8")
+    (config_dir / "vite.config.ts").write_text("", encoding="utf-8")
+
+    repository = RepositoryService(tmp_path)
+    analyzer = RepositoryAnalyzer(repository)
+    result = analyzer.analyze()
+
+    assert result["configurations"] == [
+        "config/pytest.ini",
+        "config/vite.config.ts",
+    ]
+
+
+def test_does_not_detect_non_configuration_files(tmp_path: Path):
+    (tmp_path / "main.py").write_text(
+        "print('hello')",
+        encoding="utf-8",
+    )
+    (tmp_path / "settings.txt").write_text(
+        "",
+        encoding="utf-8",
+    )
+    (tmp_path / "config.json").write_text(
+        "{}",
+        encoding="utf-8",
+    )
+
+    repository = RepositoryService(tmp_path)
+    analyzer = RepositoryAnalyzer(repository)
+    result = analyzer.analyze()
+
+    assert result["configurations"] == []
