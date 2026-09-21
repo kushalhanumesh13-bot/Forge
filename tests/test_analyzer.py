@@ -185,6 +185,108 @@ def test_analyze_architecture_is_deterministic(tmp_path: Path):
     assert analyzer.analyze()["architecture"] == analyzer.analyze()["architecture"]
 
 
+def test_analyze_builds_repository_index_for_multiple_file_types(tmp_path: Path):
+    (tmp_path / "src" / "nested").mkdir(parents=True)
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "src" / "nested" / "module.py").write_text(
+        "import json\n\nVALUE = 1\n"
+    )
+    (tmp_path / "src" / "app.js").write_text("const app = {};\n")
+    (tmp_path / "tests" / "test_module.py").write_text(
+        "def test_module():\n    pass\n"
+    )
+    (tmp_path / "README.md").write_text("# Example\n")
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+    records = result["index"]["files"]
+
+    assert [record["path"] for record in records] == [
+        "README.md",
+        "src/app.js",
+        "src/nested/module.py",
+        "tests/test_module.py",
+    ]
+    assert result["index"]["total_files"] == 4
+    assert records[0]["file_type"] == "metadata"
+    assert records[1]["language"] == "javascript"
+    assert records[2]["imports"] == ["json"]
+    assert records[2]["structure"]["constants"] == [
+        {"name": "VALUE", "line": 3}
+    ]
+    assert records[3]["is_test"] is True
+
+
+def test_analyze_index_excludes_ignored_directories(tmp_path: Path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".venv").mkdir()
+    (tmp_path / "Git").mkdir()
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "__pycache__").mkdir()
+    (tmp_path / ".pytest_cache").mkdir()
+
+    for directory in [
+        ".git",
+        ".venv",
+        "Git",
+        "node_modules",
+        "__pycache__",
+        ".pytest_cache",
+    ]:
+        (tmp_path / directory / "ignored.py").write_text("import os\n")
+
+    (tmp_path / "kept.py").write_text("import os\n")
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert [record["path"] for record in result["index"]["files"]] == [
+        "kept.py"
+    ]
+
+
+def test_analyze_index_handles_invalid_python(tmp_path: Path):
+    (tmp_path / "broken.py").write_text("def broken(:\n    pass\n")
+
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+    record = result["index"]["files"][0]
+
+    assert record["path"] == "broken.py"
+    assert record["imports"] == []
+    assert record["structure"] == {
+        "classes": [],
+        "functions": [],
+        "methods": [],
+        "constants": [],
+        "global_assignments": [],
+    }
+
+
+def test_analyze_index_is_empty_for_empty_repository(tmp_path: Path):
+    result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
+
+    assert result["index"] == {
+        "files": [],
+        "total_files": 0,
+    }
+
+
+def test_analyze_index_order_is_deterministic(tmp_path: Path):
+    (tmp_path / "z.py").write_text("")
+    (tmp_path / "a.txt").write_text("text")
+    (tmp_path / "nested").mkdir()
+    (tmp_path / "nested" / "m.py").write_text("")
+
+    analyzer = RepositoryAnalyzer(RepositoryService(tmp_path))
+    first = analyzer.analyze()["index"]
+    second = analyzer.analyze()["index"]
+
+    assert first == second
+    assert [record["path"] for record in first["files"]] == [
+        "a.txt",
+        "nested/m.py",
+        "z.py",
+    ]
+
+
 def test_analyze_detects_python_import_categories(tmp_path: Path):
     (tmp_path / "app").mkdir()
     (tmp_path / "app" / "main.py").write_text(

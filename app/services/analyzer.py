@@ -183,6 +183,15 @@ class RepositoryAnalyzer:
             typescript_files=typescript_files,
         )
 
+        index = self._build_repository_index(
+            files=files,
+            metadata_files=metadata_files,
+            configurations=configurations,
+            lockfiles=lockfiles,
+            imports=imports,
+            code_structure=code_structure,
+        )
+
         return {
             "summary": {
                 "total_files": len(files),
@@ -207,6 +216,84 @@ class RepositoryAnalyzer:
             "imports": dict(sorted(imports.items())),
             "code_structure": dict(sorted(code_structure.items())),
             "architecture": architecture,
+            "index": index,
+        }
+
+    def _build_repository_index(
+        self,
+        files: list,
+        metadata_files: list[str],
+        configurations: set[str],
+        lockfiles: list[str],
+        imports: dict,
+        code_structure: dict,
+    ) -> dict:
+        metadata_paths = {
+            path.replace("\\", "/")
+            for path in metadata_files
+        }
+        lockfile_paths = {
+            path.replace("\\", "/")
+            for path in lockfiles
+        }
+        configuration_paths = set(configurations)
+        indexed_files = []
+
+        language_by_suffix = {
+            ".py": "python",
+            ".js": "javascript",
+            ".ts": "typescript",
+        }
+
+        for path in files:
+            relative_path = path.relative_to(self.repository.root_path).as_posix()
+            language = language_by_suffix.get(path.suffix, "other")
+
+            if relative_path in configuration_paths:
+                file_type = "configuration"
+            elif relative_path in lockfile_paths:
+                file_type = "lockfile"
+            elif relative_path in metadata_paths:
+                file_type = "metadata"
+            elif language != "other":
+                file_type = "source"
+            else:
+                file_type = "other"
+
+            try:
+                size_bytes = path.stat().st_size
+            except OSError:
+                size_bytes = None
+
+            record = {
+                "path": relative_path,
+                "language": language,
+                "file_type": file_type,
+                "is_test": "test" in path.name.lower(),
+                "size_bytes": size_bytes,
+            }
+
+            if path.suffix == ".py":
+                import_info = imports.get(relative_path, {})
+                record["imports"] = import_info.get("imports", [])
+                record["structure"] = code_structure.get(
+                    relative_path,
+                    {
+                        "classes": [],
+                        "functions": [],
+                        "methods": [],
+                        "constants": [],
+                        "global_assignments": [],
+                    },
+                )
+
+            indexed_files.append(record)
+
+        indexed_files.sort(key=lambda record: record["path"])
+
+        return {
+            "files": indexed_files,
+            "total_files": len(indexed_files),
         }
 
     def _detect_architecture(
