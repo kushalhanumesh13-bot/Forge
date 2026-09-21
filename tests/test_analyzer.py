@@ -134,12 +134,14 @@ def test_analyze_detects_existing_package_entry_points(tmp_path: Path):
     ]
 
 
-def test_analyze_normalizes_windows_package_entry_point_paths(tmp_path: Path):
+def test_analyze_normalizes_windows_package_entry_point_paths(
+    tmp_path: Path,
+):
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "main.js").write_text("")
 
     (tmp_path / "package.json").write_text(
-        r'{"main": "src\\\\main.js"}'
+        '{"main": "src\\\\main.js"}'
     )
 
     result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
@@ -170,11 +172,17 @@ def test_analyze_ignores_nonexistent_and_malformed_package_entry_points(
 
 
 def test_analyze_reports_no_entry_points(tmp_path: Path):
-    (tmp_path / "README.md").write_text("No executable entry point here")
+    (tmp_path / "README.md").write_text(
+        "No executable entry point here"
+    )
+
     (tmp_path / "utility.py").write_text(
         "def helper():\n    return True\n"
     )
-    (tmp_path / "package.json").write_text('{"name": "library"}')
+
+    (tmp_path / "package.json").write_text(
+        '{"name": "library"}'
+    )
 
     result = RepositoryAnalyzer(RepositoryService(tmp_path)).analyze()
 
@@ -313,7 +321,10 @@ def test_detects_configuration_files(tmp_path: Path):
     ]
 
     for filename in config_files:
-        (tmp_path / filename).write_text("", encoding="utf-8")
+        (tmp_path / filename).write_text(
+            "",
+            encoding="utf-8",
+        )
 
     repository = RepositoryService(tmp_path)
     analyzer = RepositoryAnalyzer(repository)
@@ -322,12 +333,21 @@ def test_detects_configuration_files(tmp_path: Path):
     assert result["configurations"] == sorted(config_files)
 
 
-def test_detects_configuration_files_in_subdirectories(tmp_path: Path):
+def test_detects_configuration_files_in_subdirectories(
+    tmp_path: Path,
+):
     config_dir = tmp_path / "config"
     config_dir.mkdir()
 
-    (config_dir / "pytest.ini").write_text("", encoding="utf-8")
-    (config_dir / "vite.config.ts").write_text("", encoding="utf-8")
+    (config_dir / "pytest.ini").write_text(
+        "",
+        encoding="utf-8",
+    )
+
+    (config_dir / "vite.config.ts").write_text(
+        "",
+        encoding="utf-8",
+    )
 
     repository = RepositoryService(tmp_path)
     analyzer = RepositoryAnalyzer(repository)
@@ -339,15 +359,19 @@ def test_detects_configuration_files_in_subdirectories(tmp_path: Path):
     ]
 
 
-def test_does_not_detect_non_configuration_files(tmp_path: Path):
+def test_does_not_detect_non_configuration_files(
+    tmp_path: Path,
+):
     (tmp_path / "main.py").write_text(
         "print('hello')",
         encoding="utf-8",
     )
+
     (tmp_path / "settings.txt").write_text(
         "",
         encoding="utf-8",
     )
+
     (tmp_path / "config.json").write_text(
         "{}",
         encoding="utf-8",
@@ -358,3 +382,79 @@ def test_does_not_detect_non_configuration_files(tmp_path: Path):
     result = analyzer.analyze()
 
     assert result["configurations"] == []
+
+
+def test_analyze_readme(tmp_path: Path):
+    (tmp_path / "README.md").write_text(
+        "# Forge\n\n"
+        "An AI-powered engineering workspace for developers.\n\n"
+        "## Installation\n\n"
+        "Install the project.\n\n"
+        "## Usage\n\n"
+        "Run Forge locally.\n\n"
+        "### Configuration\n\n"
+        "Configure the project.\n",
+        encoding="utf-8",
+    )
+
+    result = RepositoryAnalyzer(
+        RepositoryService(tmp_path)
+    ).analyze()
+
+    assert result["readme"] == {
+        "present": True,
+        "path": "README.md",
+        "title": "Forge",
+        "description": (
+            "An AI-powered engineering workspace for developers."
+        ),
+        "sections": [
+            "Installation",
+            "Usage",
+            "Configuration",
+        ],
+    }
+
+
+def test_analyze_readme_in_subdirectory(tmp_path: Path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+
+    (docs / "README.md").write_text(
+        "# Documentation\n\n"
+        "Project documentation.\n\n"
+        "## Setup\n\n"
+        "Setup instructions.\n",
+        encoding="utf-8",
+    )
+
+    result = RepositoryAnalyzer(
+        RepositoryService(tmp_path)
+    ).analyze()
+
+    assert result["readme"] == {
+        "present": True,
+        "path": "docs/README.md",
+        "title": "Documentation",
+        "description": "Project documentation.",
+        "sections": ["Setup"],
+    }
+
+
+def test_analyze_without_readme(tmp_path: Path):
+    (tmp_path / "main.py").write_text(
+        "print('hello')",
+        encoding="utf-8",
+    )
+
+    result = RepositoryAnalyzer(
+        RepositoryService(tmp_path)
+    ).analyze()
+
+    assert result["readme"] == {
+        "present": False,
+        "path": None,
+        "title": None,
+        "description": None,
+        "sections": [],
+    }

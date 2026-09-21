@@ -27,6 +27,14 @@ class RepositoryAnalyzer:
         entry_points = set()
         configurations = set()
 
+        readme_info = {
+            "present": False,
+            "path": None,
+            "title": None,
+            "description": None,
+            "sections": [],
+        }
+
         metadata_names = {
             "requirements.txt",
             "pyproject.toml",
@@ -87,6 +95,12 @@ class RepositoryAnalyzer:
 
             if path.name in configuration_names:
                 configurations.add(relative_path.as_posix())
+
+            if path.name.lower() == "readme.md":
+                readme_info = self._analyze_readme(
+                    path,
+                    relative_path,
+                )
 
             dependency_kind = self._dependency_file_kind(path.name)
 
@@ -156,7 +170,85 @@ class RepositoryAnalyzer:
             "lockfiles": sorted(lockfiles),
             "entry_points": sorted(entry_points),
             "configurations": sorted(configurations),
+            "readme": readme_info,
         }
+
+    def _analyze_readme(self, path, relative_path) -> dict:
+        result = {
+            "present": True,
+            "path": relative_path.as_posix(),
+            "title": None,
+            "description": None,
+            "sections": [],
+        }
+
+        try:
+            content = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return result
+
+        lines = content.splitlines()
+
+        title_index = None
+
+        for index, line in enumerate(lines):
+            stripped = line.strip()
+
+            if stripped.startswith("# ") and not stripped.startswith("## "):
+                title = stripped[2:].strip()
+
+                if title:
+                    result["title"] = title
+                    title_index = index
+                    break
+
+        description_lines = []
+
+        start_index = (
+            title_index + 1
+            if title_index is not None
+            else 0
+        )
+
+        for line in lines[start_index:]:
+            stripped = line.strip()
+
+            if stripped.startswith("#"):
+                break
+
+            if not stripped:
+                if description_lines:
+                    break
+
+                continue
+
+            if stripped.startswith(("![", "[", "<")):
+                continue
+
+            description_lines.append(stripped)
+
+        if description_lines:
+            result["description"] = " ".join(description_lines)
+
+        sections = []
+
+        for line in lines:
+            stripped = line.strip()
+
+            heading_match = re.match(
+                r"^#{2,6}\s+(.+?)\s*#*$",
+                stripped,
+            )
+
+            if heading_match:
+                section = heading_match.group(1).strip()
+
+                if section:
+                    sections.append(section)
+
+        result["sections"] = sections
+
+        return result
 
     def _contains_python_main_guard(self, content: str) -> bool:
         try:
@@ -168,10 +260,16 @@ class RepositoryAnalyzer:
             if not isinstance(node, ast.Compare) or len(node.ops) != 1:
                 continue
 
-            if not isinstance(node.left, ast.Name) or node.left.id != "__name__":
+            if (
+                not isinstance(node.left, ast.Name)
+                or node.left.id != "__name__"
+            ):
                 continue
 
-            if not isinstance(node.ops[0], ast.Eq) or len(node.comparators) != 1:
+            if (
+                not isinstance(node.ops[0], ast.Eq)
+                or len(node.comparators) != 1
+            ):
                 continue
 
             comparator = node.comparators[0]
