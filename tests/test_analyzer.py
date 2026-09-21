@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -457,4 +458,123 @@ def test_analyze_without_readme(tmp_path: Path):
         "title": None,
         "description": None,
         "sections": [],
+    }
+def test_analyze_git_information(tmp_path: Path):
+    repository = RepositoryService(tmp_path)
+
+    def run_git(*arguments: str):
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+    run_git("init")
+    run_git("config", "user.name", "Forge Test")
+    run_git("config", "user.email", "forge-test@example.com")
+
+    (tmp_path / "main.py").write_text(
+        "print('hello')",
+        encoding="utf-8",
+    )
+
+    run_git("add", "main.py")
+    run_git("commit", "-m", "initial commit")
+
+    result = RepositoryAnalyzer(repository).analyze()
+
+    assert result["git"]["is_repository"] is True
+    assert result["git"]["branch"] in {"main", "master"}
+    assert len(result["git"]["commit"]) == 40
+    assert result["git"]["is_clean"] is True
+    assert result["git"]["changed_files"] == []
+    assert result["git"]["remote"] is None
+
+
+def test_analyze_git_detects_changed_files(tmp_path: Path):
+    repository = RepositoryService(tmp_path)
+
+    def run_git(*arguments: str):
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+    run_git("init")
+    run_git("config", "user.name", "Forge Test")
+    run_git("config", "user.email", "forge-test@example.com")
+
+    (tmp_path / "main.py").write_text(
+        "print('hello')",
+        encoding="utf-8",
+    )
+
+    run_git("add", "main.py")
+    run_git("commit", "-m", "initial commit")
+
+    (tmp_path / "main.py").write_text(
+        "print('changed')",
+        encoding="utf-8",
+    )
+
+    (tmp_path / "new.py").write_text(
+        "print('new')",
+        encoding="utf-8",
+    )
+
+    result = RepositoryAnalyzer(repository).analyze()
+
+    assert result["git"]["is_repository"] is True
+    assert result["git"]["is_clean"] is False
+    assert result["git"]["changed_files"] == [
+        "main.py",
+        "new.py",
+    ]
+
+
+def test_analyze_git_detects_remote(tmp_path: Path):
+    repository = RepositoryService(tmp_path)
+
+    def run_git(*arguments: str):
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+    run_git("init")
+    run_git("remote", "add", "origin", "https://github.com/example/forge.git")
+
+    result = RepositoryAnalyzer(repository).analyze()
+
+    assert result["git"]["is_repository"] is True
+    assert result["git"]["remote"] == (
+        "https://github.com/example/forge.git"
+    )
+
+
+def test_analyze_git_without_repository(tmp_path: Path):
+    (tmp_path / "main.py").write_text(
+        "print('hello')",
+        encoding="utf-8",
+    )
+
+    result = RepositoryAnalyzer(
+        RepositoryService(tmp_path)
+    ).analyze()
+
+    assert result["git"] == {
+        "is_repository": False,
+        "branch": None,
+        "commit": None,
+        "is_clean": None,
+        "changed_files": [],
+        "remote": None,
     }

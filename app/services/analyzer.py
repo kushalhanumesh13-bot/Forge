@@ -1,6 +1,7 @@
 import ast
 import json
 import re
+import subprocess
 import tomllib
 
 from app.services.repository import RepositoryService
@@ -26,6 +27,7 @@ class RepositoryAnalyzer:
         lockfiles = []
         entry_points = set()
         configurations = set()
+        git_info = self._analyze_git()
 
         readme_info = {
             "present": False,
@@ -171,7 +173,95 @@ class RepositoryAnalyzer:
             "entry_points": sorted(entry_points),
             "configurations": sorted(configurations),
             "readme": readme_info,
+            "git": git_info,
         }
+
+    def _analyze_git(self) -> dict:
+        result = {
+            "is_repository": False,
+            "branch": None,
+            "commit": None,
+            "is_clean": None,
+            "changed_files": [],
+            "remote": None,
+        }
+
+        git_directory = self.repository.root_path / ".git"
+
+        if not git_directory.exists():
+            return result
+
+        result["is_repository"] = True
+
+        result["branch"] = self._run_git_command(
+            ["rev-parse", "--abbrev-ref", "HEAD"]
+        )
+
+        result["commit"] = self._run_git_command(
+            ["rev-parse", "HEAD"]
+        )
+
+        status_output = self._run_git_command(
+            ["status", "--porcelain"]
+        )
+
+        if status_output is not None:
+            result["is_clean"] = status_output == ""
+            result["changed_files"] = self._parse_git_status(
+                status_output
+            )
+
+        remote = self._run_git_command(
+            ["remote", "get-url", "origin"]
+        )
+
+        if remote:
+            result["remote"] = remote
+
+        return result
+
+    def _run_git_command(self, arguments: list[str]) -> str | None:
+        try:
+            completed = subprocess.run(
+                ["git", *arguments],
+                cwd=self.repository.root_path,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=5,
+                check=False,
+            )
+        except (
+            OSError,
+            subprocess.SubprocessError,
+        ):
+            return None
+
+        if completed.returncode != 0:
+            return None
+
+        return completed.stdout.strip()
+
+    def _parse_git_status(self, output: str) -> list[str]:
+        changed_files = []
+
+        for line in output.splitlines():
+            if len(line) < 4:
+                continue
+
+            path = line[2:].strip()
+
+            if " -> " in path:
+                path = path.split(" -> ", 1)[1]
+
+            if path.startswith('"') and path.endswith('"'):
+                path = path[1:-1]
+
+            if path:
+                changed_files.append(path.replace("\\", "/"))
+
+        return sorted(set(changed_files))
 
     def _analyze_readme(self, path, relative_path) -> dict:
         result = {
