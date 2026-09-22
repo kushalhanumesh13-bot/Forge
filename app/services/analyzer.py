@@ -6,11 +6,13 @@ import sys
 import tomllib
 
 from app.services.repository import RepositoryService
+from app.services.codebase import CodebaseContext, CodebaseUnderstandingBuilder
 
 
 class RepositoryAnalyzer:
     def __init__(self, repository: RepositoryService):
         self.repository = repository
+        self._codebase_context: CodebaseContext | None = None
 
     def analyze(self) -> dict:
         files = self.repository.get_files()
@@ -30,6 +32,9 @@ class RepositoryAnalyzer:
         configurations = set()
         imports = {}
         code_structure = {}
+        python_trees = {}
+        parse_status = {}
+        frameworks_by_file = {}
         architecture = {}
         git_info = self._analyze_git()
 
@@ -135,22 +140,45 @@ class RepositoryAnalyzer:
                     )
 
             if path.suffix in {".py", ".js", ".ts"}:
-                content = path.read_text(encoding="utf-8")
+                content = self._read_source_file(path)
+
+                if content is None:
+                    if path.suffix == ".py":
+                        empty_imports = self._analyze_python_imports(
+                            "",
+                            python_module_roots,
+                        )
+                        imports[relative_path.as_posix()] = empty_imports
+                        code_structure[relative_path.as_posix()] = (
+                            self._analyze_python_code_structure("")
+                        )
+                        python_trees[relative_path.as_posix()] = None
+                        parse_status[relative_path.as_posix()] = "unreadable"
+                    continue
 
                 if path.suffix == ".py":
+                    tree = self._parse_python(content)
+                    python_trees[relative_path.as_posix()] = tree
+                    parse_status[relative_path.as_posix()] = (
+                        "parsed" if tree is not None else "invalid"
+                    )
                     imports[relative_path.as_posix()] = (
                         self._analyze_python_imports(
                             content,
                             python_module_roots,
+                            tree,
                         )
                     )
                     code_structure[relative_path.as_posix()] = (
-                        self._analyze_python_code_structure(content)
+                        self._analyze_python_code_structure(content, tree)
                     )
 
                 if path.suffix == ".py" and (
                     path.name in {"main.py", "__main__.py"}
-                    or self._contains_python_main_guard(content)
+                    or self._contains_python_main_guard(
+                        content,
+                        python_trees.get(relative_path.as_posix()),
+                    )
                 ):
                     entry_points.add(
                         relative_path.as_posix()
@@ -159,10 +187,14 @@ class RepositoryAnalyzer:
                 detected_frameworks = self._detect_frameworks(
                     content=content,
                     suffix=path.suffix,
+                    tree=python_trees.get(relative_path.as_posix()),
                 )
 
                 frameworks.update(detected_frameworks)
                 technologies.update(detected_frameworks)
+                frameworks_by_file[relative_path.as_posix()] = sorted(
+                    detected_frameworks
+                )
 
         project_type = self._detect_project_type(
             python_files=python_files,
@@ -192,6 +224,21 @@ class RepositoryAnalyzer:
             code_structure=code_structure,
         )
 
+        codebase_understanding = CodebaseUnderstandingBuilder(
+            repository_root=self.repository.root_path,
+            files=files,
+            python_trees=python_trees,
+            parse_status=parse_status,
+            imports=imports,
+            code_structure=code_structure,
+            entry_points=sorted(entry_points),
+            architecture=architecture,
+            configurations=sorted(configurations),
+            frameworks_by_file=frameworks_by_file,
+            index=index,
+        ).build()
+        self._codebase_context = CodebaseContext(codebase_understanding)
+
         return {
             "summary": {
                 "total_files": len(files),
@@ -217,7 +264,32 @@ class RepositoryAnalyzer:
             "code_structure": dict(sorted(code_structure.items())),
             "architecture": architecture,
             "index": index,
+            "codebase_understanding": codebase_understanding,
         }
+
+    def get_codebase_context(self) -> CodebaseContext:
+        """Return reusable context from the most recent analysis.
+
+        The first request creates an analysis.  Subsequent lookup operations
+        reuse the in-memory model instead of scanning the repository again.
+        """
+        if self._codebase_context is None:
+            self.analyze()
+        return self._codebase_context
+
+    @staticmethod
+    def _parse_python(content: str) -> ast.AST | None:
+        try:
+            return ast.parse(content)
+        except (SyntaxError, UnicodeError):
+            return None
+
+    @staticmethod
+    def _read_source_file(path) -> str | None:
+        try:
+            return path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return None
 
     def _build_repository_index(
         self,
@@ -477,6 +549,7 @@ class RepositoryAnalyzer:
         self,
         content: str,
         local_module_roots: set[str],
+        tree: ast.AST | None = None,
     ) -> dict:
         result = {
             "imports": [],
@@ -485,9 +558,10 @@ class RepositoryAnalyzer:
             "local_project": [],
         }
 
-        try:
-            tree = ast.parse(content)
-        except (SyntaxError, UnicodeError):
+        if tree is None:
+            tree = self._parse_python(content)
+
+        if tree is None:
             return result
 
         imported_modules = set()
@@ -525,7 +599,11 @@ class RepositoryAnalyzer:
 
         return result
 
-    def _analyze_python_code_structure(self, content: str) -> dict:
+    def _analyze_python_code_structure(
+        self,
+        content: str,
+        tree: ast.AST | None = None,
+    ) -> dict:
         result = {
             "classes": [],
             "functions": [],
@@ -534,9 +612,10 @@ class RepositoryAnalyzer:
             "global_assignments": [],
         }
 
-        try:
-            tree = ast.parse(content)
-        except (SyntaxError, UnicodeError):
+        if tree is None:
+            tree = self._parse_python(content)
+
+        if tree is None:
             return result
 
         classes = []
@@ -815,10 +894,15 @@ class RepositoryAnalyzer:
 
         return result
 
-    def _contains_python_main_guard(self, content: str) -> bool:
-        try:
-            tree = ast.parse(content)
-        except (SyntaxError, UnicodeError):
+    def _contains_python_main_guard(
+        self,
+        content: str,
+        tree: ast.AST | None = None,
+    ) -> bool:
+        if tree is None:
+            tree = self._parse_python(content)
+
+        if tree is None:
             return False
 
         for node in ast.walk(tree):
@@ -1187,9 +1271,10 @@ class RepositoryAnalyzer:
         self,
         content: str,
         suffix: str,
+        tree: ast.AST | None = None,
     ) -> set[str]:
         if suffix == ".py":
-            return self._detect_python_frameworks(content)
+            return self._detect_python_frameworks(content, tree)
 
         if suffix in {".js", ".ts"}:
             return self._detect_javascript_frameworks(content)
@@ -1199,10 +1284,12 @@ class RepositoryAnalyzer:
     def _detect_python_frameworks(
         self,
         content: str,
+        tree: ast.AST | None = None,
     ) -> set[str]:
-        try:
-            tree = ast.parse(content)
-        except (SyntaxError, UnicodeError):
+        if tree is None:
+            tree = self._parse_python(content)
+
+        if tree is None:
             return set()
 
         frameworks = set()
