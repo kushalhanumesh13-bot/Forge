@@ -9,6 +9,7 @@ rescanning a repository.
 from __future__ import annotations
 
 import ast
+import copy
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -348,6 +349,8 @@ class CodebaseUnderstandingBuilder:
         if resolved_paths:
             dependency_type = "local"
         elif raw_module.startswith("."):
+            dependency_type = "unresolved"
+        elif absolute_module in self.module_to_paths:
             dependency_type = "unresolved"
         elif root in sys.stdlib_module_names:
             dependency_type = "standard_library"
@@ -737,7 +740,10 @@ class CodebaseUnderstandingBuilder:
             return sorted(
                 path
                 for path in source_paths
-                if any(part.lower() in names for part in path.split("/"))
+                if any(
+                    part.lower() in names
+                    for part in path.split("/") + [Path(path).stem]
+                )
             )
 
         components = []
@@ -886,33 +892,42 @@ class CodebaseContext:
     """Small composable lookup API over a completed understanding object."""
 
     def __init__(self, understanding: dict[str, Any]) -> None:
-        self.understanding = understanding
+        self._understanding = copy.deepcopy(understanding)
         self._modules = {
             module["path"]: module
-            for module in understanding.get("modules", [])
+            for module in self._understanding.get("modules", [])
         }
-        self._symbols = understanding.get("symbols", [])
-        self._relationships = understanding.get("relationships", [])
-        self._graph = understanding.get("dependency_graph", {})
+        self._symbols = self._understanding.get("symbols", [])
+        self._relationships = self._understanding.get("relationships", [])
+        self._graph = self._understanding.get("dependency_graph", {})
         self._entry_points = {
             entry_point["path"]: entry_point
-            for entry_point in understanding.get("entry_point_context", [])
+            for entry_point in self._understanding.get("entry_point_context", [])
         }
 
+    @property
+    def understanding(self) -> dict[str, Any]:
+        """Return a copy so callers cannot mutate the cached model."""
+        return copy.deepcopy(self._understanding)
+
     def symbols_named(self, name: str) -> list[dict[str, Any]]:
-        return [symbol for symbol in self._symbols if symbol["name"] == name]
+        return copy.deepcopy(
+            [symbol for symbol in self._symbols if symbol["name"] == name]
+        )
 
     def symbols_in_file(self, path: str) -> list[dict[str, Any]]:
         normalized = self._path(path)
-        return [symbol for symbol in self._symbols if symbol["file"] == normalized]
+        return copy.deepcopy(
+            [symbol for symbol in self._symbols if symbol["file"] == normalized]
+        )
 
     def module(self, path_or_module: str) -> dict[str, Any] | None:
         normalized = self._path(path_or_module)
         if normalized in self._modules:
-            return self._modules[normalized]
+            return copy.deepcopy(self._modules[normalized])
         for module in self._modules.values():
             if module["module"] == path_or_module:
-                return module
+                return copy.deepcopy(module)
         return None
 
     def modules_importing(self, path_or_module: str) -> list[str]:
@@ -954,10 +969,14 @@ class CodebaseContext:
         normalized = self._path(path_or_module)
         entry_point = self._entry_points.get(normalized)
         if entry_point:
-            return entry_point
+            return copy.deepcopy(entry_point)
 
         module = self.module(path_or_module)
-        return self._entry_points.get(module["path"]) if module else None
+        return (
+            copy.deepcopy(self._entry_points[module["path"]])
+            if module and module["path"] in self._entry_points
+            else None
+        )
 
     def focused(
         self,
@@ -977,7 +996,7 @@ class CodebaseContext:
             if file_path
             else None
         )
-        return {
+        return copy.deepcopy({
             "module": module,
             "symbols": (
                 self.symbols_named(symbol_name)
@@ -995,7 +1014,7 @@ class CodebaseContext:
             "entry_point": self.entry_point(
                 entry_point or selected_path or module_name
             ) if (entry_point or selected_path or module_name) else None,
-        }
+        })
 
     @staticmethod
     def _path(path: str | None) -> str:

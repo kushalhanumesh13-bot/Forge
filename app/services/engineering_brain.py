@@ -8,6 +8,7 @@ use without changing the repository itself.
 
 from __future__ import annotations
 
+import copy
 import re
 from collections import defaultdict
 from typing import Any
@@ -47,7 +48,7 @@ class EngineeringBrain:
     """Plan engineering work from an already-computed repository analysis."""
 
     def __init__(self, analysis: dict[str, Any] | None = None) -> None:
-        self.analysis = analysis if isinstance(analysis, dict) else {}
+        self.analysis = copy.deepcopy(analysis) if isinstance(analysis, dict) else {}
         self.understanding = self.analysis.get("codebase_understanding", {})
         self.context = CodebaseContext(self.understanding)
         self._files = self.understanding.get("files", [])
@@ -79,7 +80,7 @@ class EngineeringBrain:
             description,
             explicit_type=explicit_type,
         )
-        return {
+        return copy.deepcopy({
             "description": description,
             "type": classification["type"],
             "confidence": classification["confidence"],
@@ -89,7 +90,7 @@ class EngineeringBrain:
             "constraints": sorted(set(constraints)),
             "acceptance_criteria": sorted(set(criteria)),
             "assumptions": sorted(set(assumptions)),
-        }
+        })
 
     def classify_task(
         self,
@@ -116,7 +117,7 @@ class EngineeringBrain:
         matches = []
         evidence = []
         for task_type, terms in _CLASSIFICATION_RULES:
-            found = [term for term in terms if term in lowered]
+            found = [term for term in terms if self._term_matches(lowered, term)]
             if found:
                 matches.append(task_type)
                 evidence.append(
@@ -132,11 +133,11 @@ class EngineeringBrain:
 
         selected = matches[0]
         confidence = "high" if len(matches) == 1 else "medium"
-        return {
+        return copy.deepcopy({
             "type": selected,
             "confidence": confidence,
             "evidence": sorted(evidence),
-        }
+        })
 
     def retrieve_context(
         self,
@@ -151,7 +152,7 @@ class EngineeringBrain:
         modules = [module for module in self._modules if module["path"] in paths]
         symbols = [symbol for symbol in self._symbols if symbol["file"] in paths]
         ranked = scope["ranked_files"]
-        return {
+        return copy.deepcopy({
             "repository": {
                 "summary": self.analysis.get("summary", {}),
                 "project_type": self.analysis.get("project_type", "unknown"),
@@ -178,7 +179,7 @@ class EngineeringBrain:
                 for path in self.understanding.get("configuration_files", [])
                 if path in paths or normalized["type"] == "configuration"
             ),
-        }
+        })
 
     def rank_relevance(
         self,
@@ -206,7 +207,7 @@ class EngineeringBrain:
             selected = [item for item in ranked if item["score"] > 0][:max(limit, 0)]
         paths = {item["path"] for item in selected}
         explicit_targets = set(normalized["targets"]) | set(normalized["scope"])
-        return {
+        return copy.deepcopy({
             "relevant_files": sorted(paths),
             "relevant_modules": sorted(
                 module["module"]
@@ -224,7 +225,7 @@ class EngineeringBrain:
             "entry_points": self._related_entry_points(paths),
             "ranked_files": ranked[:max(limit, 0)],
             "uncertain": not bool(paths) or bool(explicit_targets - paths),
-        }
+        })
 
     def analyze_impact(
         self,
@@ -333,6 +334,17 @@ class EngineeringBrain:
                 "description": "The inferred change surface is broad.",
                 "evidence": [str(len(impact["direct_targets"])) + " direct targets"],
             })
+        public_symbols = [
+            symbol["name"]
+            for symbol in scope.get("relevant_symbols", [])
+            if symbol.get("visibility") == "public"
+        ]
+        if public_symbols:
+            risks.append({
+                "type": "public_api_change",
+                "description": "The inferred scope includes public symbols.",
+                "evidence": sorted(set(public_symbols)),
+            })
         if not impact["tests"]:
             risks.append({
                 "type": "test_coverage_uncertainty",
@@ -375,7 +387,7 @@ class EngineeringBrain:
         assumptions = self._assumptions(normalized, scope)
         steps = self._plan_steps(normalized, scope, tests)
         confidence = self._plan_confidence(normalized, scope, ambiguity, tests)
-        return {
+        return copy.deepcopy({
             "task": normalized,
             "objective": normalized["description"] or "Clarify the intended engineering objective.",
             "context": self.retrieve_context(normalized),
@@ -390,13 +402,26 @@ class EngineeringBrain:
             "ambiguity": ambiguity,
             "confidence": confidence,
             "validation": ["python -m pytest -q"],
-        }
+        })
 
     plan = generate_plan
 
     def _rank_files(self, task: dict[str, Any]) -> list[dict[str, Any]]:
         keywords = self._keywords(task["description"])
         explicit = set(task["targets"]) | set(task["scope"])
+        explicit_paths = self._explicit_target_paths(task)
+        related_dependencies = {
+            dependency
+            for path in explicit_paths
+            for dependency in self.context.local_dependencies(path)
+        }
+        related_dependents = {
+            dependent
+            for path in explicit_paths
+            for dependent in self.context.local_dependents(path)
+        }
+        related_tests = set(self._related_tests(explicit_paths, task))
+        related_entry_points = set(self._related_entry_points(explicit_paths))
         ranked = []
         for file in self._files:
             path = file["path"]
@@ -405,6 +430,11 @@ class EngineeringBrain:
             reasons = []
             path_stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0].lower()
             module = file.get("module") or ""
+            symbol_names = {
+                symbol["name"].lower()
+                for symbol in self._symbols
+                if symbol["file"] == path
+            }
             for target in sorted(explicit):
                 target_lower = target.lower().replace("\\", "/")
                 if target_lower == path_lower:
@@ -416,15 +446,13 @@ class EngineeringBrain:
                 elif target_lower in path_lower:
                     score += 5
                     reasons.append("target path match")
+                elif target_lower in symbol_names:
+                    score += 8
+                    reasons.append("exact target symbol match")
             for keyword in keywords:
                 if keyword in path_lower or keyword == path_stem or keyword in module.lower():
                     score += 2
                     reasons.append(f"task keyword matched {keyword}")
-            symbol_names = {
-                symbol["name"].lower()
-                for symbol in self._symbols
-                if symbol["file"] == path
-            }
             for keyword in keywords:
                 if keyword in symbol_names:
                     score += 5
@@ -433,6 +461,18 @@ class EngineeringBrain:
             for component in sorted(component_hits):
                 score += 3
                 reasons.append(f"task keyword matched component {component}")
+            if path in related_dependencies:
+                score += 1
+                reasons.append("local dependency of target module")
+            if path in related_dependents:
+                score += 1
+                reasons.append("local dependent of target module")
+            if path in related_entry_points:
+                score += 1
+                reasons.append("entry-point relationship")
+            if path in related_tests:
+                score += 1
+                reasons.append("related test file")
             if score:
                 ranked.append({"path": path, "score": score, "reasons": sorted(set(reasons))})
 
@@ -607,7 +647,7 @@ class EngineeringBrain:
     def _text(value: Any) -> str:
         if not isinstance(value, str):
             return ""
-        return " ".join(value.split())
+        return " ".join(value.split())[:100_000]
 
     @classmethod
     def _strings(cls, value: Any) -> list[str]:
@@ -626,6 +666,11 @@ class EngineeringBrain:
             for token in re.findall(r"[A-Za-z][A-Za-z0-9_/-]*", value.lower())
             if token not in _STOP_WORDS and len(token) > 1
         }
+
+    @staticmethod
+    def _term_matches(value: str, term: str) -> bool:
+        pattern = rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])"
+        return re.search(pattern, value, re.IGNORECASE) is not None
 
 
 EngineeringBrainService = EngineeringBrain

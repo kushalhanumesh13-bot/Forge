@@ -9,6 +9,10 @@ from app.services.repository import RepositoryService
 from app.services.codebase import CodebaseContext, CodebaseUnderstandingBuilder
 
 
+MAX_SOURCE_BYTES = 10 * 1024 * 1024
+MAX_METADATA_BYTES = 4 * 1024 * 1024
+
+
 class RepositoryAnalyzer:
     def __init__(self, repository: RepositoryService):
         self.repository = repository
@@ -287,6 +291,8 @@ class RepositoryAnalyzer:
     @staticmethod
     def _read_source_file(path) -> str | None:
         try:
+            if path.stat().st_size > MAX_SOURCE_BYTES:
+                return None
             return path.read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             return None
@@ -827,6 +833,8 @@ class RepositoryAnalyzer:
         }
 
         try:
+            if path.stat().st_size > MAX_METADATA_BYTES:
+                return result
             content = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             return result
@@ -1081,6 +1089,8 @@ class RepositoryAnalyzer:
 
     def _read_dependency_file(self, path) -> str:
         try:
+            if path.stat().st_size > MAX_METADATA_BYTES:
+                return ""
             return path.read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             return ""
