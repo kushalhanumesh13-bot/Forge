@@ -42,6 +42,7 @@ class RepositoryAnalyzer:
         architecture = {}
         git_info = self._analyze_git()
 
+
         readme_info = {
             "present": False,
             "path": None,
