@@ -1188,7 +1188,7 @@ class RepositoryAnalyzer:
 
         tool = document.get("tool", {})
 
-        poetry = (
+        poetry = ( 
             tool.get("poetry", {})
             if isinstance(tool, dict)
             else {}

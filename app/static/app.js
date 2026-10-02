@@ -9,6 +9,7 @@ const state = {
   changes: [],
   activeView: "explorer",
   activeDock: "terminal",
+  fileRequest: 0,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -36,6 +37,18 @@ function toast(message, error = false) {
 function setStatus(value, busy = false) {
   $("status").textContent = value;
   document.querySelector(".connection").classList.toggle("busy", busy);
+}
+
+function workspaceName() {
+  return state.analysis?.readme?.title || "Workspace";
+}
+
+function hasUnsavedChanges() {
+  return state.dirty.size > 0;
+}
+
+function confirmNavigation() {
+  return !hasUnsavedChanges() || window.confirm("You have unsaved changes. Continue without saving?");
 }
 
 function log(message, icon = "•") {
@@ -87,7 +100,7 @@ function buildTree() {
   const folders = Object.keys(root.folders).sort().map((name) => folderRow(name, root.folders[name], 1)).join("");
   const files = root.files.sort((a, b) => a.path.localeCompare(b.path)).map((file) => fileRow(file, 0)).join("");
   $("tree").innerHTML = `<div class="tree-folder"><div class="tree-row folder" style="padding-left:8px">
-    <span class="twisty">▾</span><span class="file-symbol">▰</span><span class="file-name">001</span></div><div>${folders}${files}</div></div>`;
+    <span class="twisty">▾</span><span class="file-symbol">▰</span><span class="file-name">${esc(workspaceName())}</span></div><div>${folders}${files}</div></div>`;
   $("file-count").textContent = `${state.files.length} files`;
   document.querySelectorAll("[data-folder]").forEach((row) => row.addEventListener("click", () => {
     const child = document.querySelector(`[data-children="${row.dataset.folder}"]`);
@@ -107,6 +120,12 @@ async function loadAnalysis() {
       method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
     });
     state.files = state.analysis.codebase_understanding?.files || [];
+    const name = workspaceName();
+    const git = state.analysis.git || {};
+    $("repo-title").textContent = name;
+    $("repo-name").textContent = name;
+    $("branch-name").textContent = git.branch ? `branch ${git.branch}` : "branch unavailable";
+    $("repo-summary").innerHTML = `<strong>${esc(state.analysis.project_type || "Unknown project")}</strong><span>${(state.analysis.frameworks || []).map(esc).join(" · ") || "No framework detected"}</span><span>${git.is_repository ? (git.is_clean ? "Clean worktree" : `${git.changed_files?.length || 0} changed files`) : "Not a Git repository"}</span>`;
     buildTree();
     const summary = state.analysis.summary;
     $("status-meta").textContent = `${summary.python_files} Python · ${summary.test_files} tests · ${state.analysis.project_type || "workspace"}`;
@@ -139,10 +158,13 @@ async function loadChanges() {
 }
 
 async function openFile(path) {
+  if (path === state.activePath || !confirmNavigation()) return;
+  const requestId = ++state.fileRequest;
   if (!state.openFiles.includes(path)) state.openFiles.push(path);
   state.activePath = path;
   try {
     const data = await api(`/api/file?path=${encodeURIComponent(path)}`);
+    if (requestId !== state.fileRequest || state.activePath !== path) return;
     state.fileContents[path] = data.content;
     renderTabs();
     renderEditor();
@@ -166,6 +188,7 @@ function renderTabs() {
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
     const path = decodeURIComponent(button.dataset.close);
+    if (state.dirty.has(path) && !window.confirm(`Discard unsaved changes in ${path}?`)) return;
     state.openFiles = state.openFiles.filter((item) => item !== path);
     if (state.activePath === path) state.activePath = state.openFiles.at(-1) || null;
     renderTabs(); renderEditor();
@@ -187,10 +210,10 @@ function renderEditor() {
   $("save").disabled = !state.activePath;
   $("editor-empty").classList.toggle("hidden", Boolean(state.activePath));
   const parts = (state.activePath || "").split("/");
-  $("breadcrumbs").innerHTML = `<span>001</span>${parts.map((part) => `<span>/</span><span>${esc(part)}</span>`).join("")}`;
+  $("breadcrumbs").innerHTML = `<span>${esc(workspaceName())}</span>${parts.map((part) => `<span>/</span><span>${esc(part)}</span>`).join("")}`;
   $("line-numbers").textContent = content ? content.split("\n").map((_, index) => index + 1).join("\n") : " ";
   $("code-highlight").innerHTML = highlight(content);
-  $("status-path").textContent = `001 / ${state.activePath || "workspace"}`;
+  $("status-path").textContent = `${workspaceName()} / ${state.activePath || "workspace"}`;
   document.querySelectorAll("[data-file]").forEach((row) => row.classList.toggle("selected", decodeURIComponent(row.dataset.file) === state.activePath));
 }
 
@@ -238,12 +261,16 @@ async function showDiff(path) {
 }
 
 function renderPlan(result) {
-  const plan = result.plan; const impact = plan.impact || {}; const tests = plan.tests || {};
-  const confidence = { high: "High", medium: "Medium", low: "Low" }[result.confidence] || "Unrated";
-  $("plan").innerHTML = `<div class="plan-summary"><div class="plan-title">${esc(plan.objective)}</div><div class="plan-badges"><span class="badge">${esc(result.classification.replace("_", " "))}</span><span class="confidence">${confidence} confidence</span></div></div>
-    <div class="evidence"><div><strong>${plan.affected_files?.length || 0}</strong><span>relevant files</span></div><div><strong>${impact.direct_dependents?.length || 0}</strong><span>dependent modules</span></div><div><strong>${tests.existing_tests?.length || 0}</strong><span>related tests</span></div><div><strong>${plan.risks?.length || 0}</strong><span>identified risks</span></div></div>
-    <div class="section-label">IMPLEMENTATION PLAN</div><ol class="plan-steps">${(plan.steps || []).map((step, index) => `<li class="plan-step"><span class="step-num">${String(index + 1).padStart(2, "0")}</span><div><div class="step-text">${esc(step.description || step.action || step)}</div>${step.targets?.length ? `<div class="step-files">${step.targets.map(esc).join(" · ")}</div>` : ""}</div></li>`).join("")}</ol>
-    ${plan.risks?.length ? `<div class="section-label">RISKS</div><div class="risk">${esc(plan.risks[0].description || plan.risks[0])}</div>` : ""}<div class="section-label">TEST STRATEGY</div><div class="step-files">${(tests.proposed_tests || []).map(esc).join("<br>")}</div>`;
+  const plan = result.plan || {}; const impact = plan.impact || {}; const tests = plan.tests || {};
+  const task = plan.task || {}; const confidence = { high: "High", medium: "Medium", low: "Low" }[plan.confidence || result.confidence] || "Unrated";
+  const risks = plan.risks || []; const ambiguity = plan.ambiguity || {};
+  $("plan").innerHTML = `<div class="plan-summary"><div class="plan-title">${esc(plan.objective || task.description || "No objective returned")}</div><div class="plan-badges"><span class="badge">${esc((task.type || result.classification || "unknown").replaceAll("_", " "))}</span><span class="confidence">${confidence} confidence</span><span class="plan-state">Plan only</span></div></div>
+    <div class="evidence"><div><strong>${plan.affected_files?.length || 0}</strong><span>affected files</span></div><div><strong>${impact.dependents?.length || 0}</strong><span>dependents</span></div><div><strong>${tests.existing_tests?.length || 0}</strong><span>related tests</span></div><div><strong>${risks.length}</strong><span>risks</span></div></div>
+    ${ambiguity.needs_clarification ? `<div class="callout warning"><strong>Clarification needed</strong><span>${(ambiguity.questions || []).map(esc).join(" ")}</span></div>` : ""}
+    <div class="section-label">IMPLEMENTATION PLAN</div><ol class="plan-steps">${(plan.steps || []).map((step, index) => `<li class="plan-step"><span class="step-num">${String(step.order || index + 1).padStart(2, "0")}</span><div><div class="step-text">${esc(step.description || step.action || step)}</div>${step.targets?.length ? `<div class="step-files">${step.targets.map(esc).join(" · ")}</div>` : ""}${step.depends_on?.length ? `<div class="step-dependency">Depends on step ${step.depends_on.join(", ")}</div>` : ""}</div></li>`).join("")}</ol>
+    ${plan.affected_symbols?.length ? `<div class="section-label">RELEVANT SYMBOLS</div><div class="chip-list">${plan.affected_symbols.map((symbol) => `<span class="chip">${esc(symbol.name)} <small>${esc(symbol.file)}:${symbol.line}</small></span>`).join("")}</div>` : ""}
+    ${risks.length ? `<div class="section-label">RISKS</div><div class="risk-list">${risks.map((risk) => `<div class="risk"><strong>${esc(risk.type.replaceAll("_", " "))}</strong><span>${esc(risk.description)}</span></div>`).join("")}</div>` : ""}
+    <div class="section-label">TEST STRATEGY</div><div class="step-files">${(tests.proposed_tests || []).map(esc).join("<br>") || "No test strategy returned."}</div>`;
 }
 
 async function generatePlan() {

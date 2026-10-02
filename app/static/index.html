@@ -10,7 +10,7 @@
   <header class="topbar">
     <button class="brand" id="home" aria-label="Forge workspace"><span class="brand-mark">F</span><span class="brand-name">Forge</span></button>
     <span class="top-divider"></span>
-    <div class="repository-context"><span class="repo-icon">⌘</span><strong>001</strong><span class="branch">main</span></div>
+    <div class="repository-context"><span class="repo-icon">/</span><strong id="repo-title">Workspace</strong><span class="branch" id="branch-name">branch unavailable</span></div>
     <div class="top-actions">
       <button class="top-search" id="quick-open" title="Quick open (Ctrl+P)"><span>⌕</span><span>Open file or symbol</span><kbd>Ctrl P</kbd></button>
       <button class="top-button" id="command-open" title="Command palette (Ctrl+Shift+P)">Commands <kbd>Ctrl ⇧ P</kbd></button>
@@ -29,7 +29,8 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-heading"><div><span class="eyebrow" id="side-eyebrow">WORKSPACE</span><h1 id="side-title">Explorer</h1></div><button class="icon-button" id="sidebar-close" aria-label="Hide explorer">×</button></div>
       <div id="explorer-view" class="side-view">
-        <div class="side-toolbar"><span id="repo-name">001</span><span class="side-count" id="file-count">0 files</span></div>
+        <div class="side-toolbar"><span id="repo-name">Workspace</span><span class="side-count" id="file-count">0 files</span></div>
+        <div class="repo-summary" id="repo-summary"><span>Waiting for repository analysis</span></div>
         <div class="tree" id="tree" role="tree" tabindex="0" aria-label="Repository files"><div class="empty-side">Analyzing repository…</div></div>
       </div>
       <div id="search-view" class="side-view hidden"><label class="search-box"><span>⌕</span><input id="search-input" placeholder="Search in repository" aria-label="Search in repository"><kbd>Enter</kbd></label><div class="search-meta" id="search-meta">Search files, symbols, and text</div><div class="results" id="search-results"></div></div>
@@ -37,7 +38,7 @@
       <div id="tasks-view" class="side-view hidden"><div class="task-list"><div class="empty-side">No active task<br><small>Start an engineering task in the plan panel.</small></div></div></div>
     </aside>
     <main class="main-area">
-      <div class="main-toolbar"><div class="breadcrumbs" id="breadcrumbs"><span>001</span><span>/</span><span class="muted">Select a file</span></div><div class="editor-actions"><button class="toolbar-button" id="find-file" title="Search within file">⌕ Find</button><button class="toolbar-button" id="save" disabled>Save <kbd>Ctrl S</kbd></button></div></div>
+      <div class="main-toolbar"><div class="breadcrumbs" id="breadcrumbs"><span>Workspace</span><span>/</span><span class="muted">Select a file</span></div><div class="editor-actions"><button class="toolbar-button" id="find-file" title="Search within file">⌕ Find</button><button class="toolbar-button" id="save" disabled>Save <kbd>Ctrl S</kbd></button></div></div>
       <div class="editor-wrap" id="editor-wrap">
         <div class="tabs" id="tabs"><div class="empty-tab">Select a file from Explorer</div></div>
         <div class="code-editor" id="code-editor"><div class="line-numbers" id="line-numbers"></div><div class="code-scroller"><pre class="code-highlight" id="code-highlight" aria-hidden="true"></pre><textarea id="editor" spellcheck="false" disabled aria-label="Code editor" placeholder="Select a file from Explorer to inspect it"></textarea></div><div class="editor-empty" id="editor-empty"><strong>Select a file</strong><span>Choose a file from the Explorer to inspect it.</span></div></div>
@@ -53,7 +54,7 @@
     <div class="dock-content" id="dock-tests"><div class="test-summary" id="test-summary"><div class="dock-empty">No test run yet<br><small>Run the test suite to validate the workspace.</small></div></div></div>
     <div class="dock-content" id="dock-activity"><div class="activity-list" id="activity"><div class="dock-empty">No activity yet.</div></div></div>
   </section>
-  <footer class="statusbar"><span id="status-path">001 / workspace</span><span id="status-meta">Repository analysis pending</span><span class="status-shortcuts">Ctrl P Quick Open&nbsp;&nbsp; Ctrl ⇧ P Commands&nbsp;&nbsp; Ctrl ` Terminal</span></footer>
+  <footer class="statusbar"><span id="status-path">Workspace / workspace</span><span id="status-meta">Repository analysis pending</span><span class="status-shortcuts">Ctrl P Quick Open&nbsp;&nbsp; Ctrl ⇧ P Commands&nbsp;&nbsp; Ctrl ` Terminal</span></footer>
   <div class="modal-backdrop hidden" id="modal-backdrop"><section class="command-palette" role="dialog" aria-modal="true" aria-labelledby="palette-title"><div class="palette-heading"><span id="palette-title">Command palette</span><button class="icon-button" id="palette-close" aria-label="Close command palette">×</button></div><input id="palette-input" placeholder="Type a command…" aria-label="Command search"><div id="palette-results"></div></section></div>
   <div class="toast" id="toast" role="status"></div>
   <script src="/static/app.js"></script>

@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 
 IGNORED_DIRECTORIES = {
@@ -23,24 +24,37 @@ class RepositoryService:
     def get_files(self) -> list[Path]:
         files = []
 
-        for path in self.root_path.rglob("*"):
-            try:
-                relative_path = path.relative_to(self.root_path)
-                current = self.root_path
-                if any(
-                    (current := current / part).is_symlink()
-                    for part in relative_path.parts[:-1]
-                ):
+        ignored_directories = {directory.lower() for directory in IGNORED_DIRECTORIES}
+        for directory, subdirectories, filenames in os.walk(
+            self.root_path,
+            topdown=True,
+            followlinks=False,
+        ):
+            subdirectories[:] = [
+                name
+                for name in subdirectories
+                if name.lower() not in ignored_directories
+                and not (Path(directory) / name).is_symlink()
+            ]
+            paths = [Path(directory) / name for name in filenames]
+            for path in paths:
+                try:
+                    relative_path = path.relative_to(self.root_path)
+                    current = self.root_path
+                    if any(
+                        (current := current / part).is_symlink()
+                        for part in relative_path.parts[:-1]
+                    ):
+                        continue
+                    if (
+                        path.is_symlink()
+                        or not path.is_file()
+                        or self._is_ignored(path)
+                    ):
+                        continue
+                except OSError:
                     continue
-                if (
-                    path.is_symlink()
-                    or not path.is_file()
-                    or self._is_ignored(path)
-                ):
-                    continue
-            except OSError:
-                continue
-            files.append(path)
+                files.append(path)
 
         return sorted(files, key=lambda path: path.relative_to(self.root_path).as_posix())
 

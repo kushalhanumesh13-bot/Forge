@@ -51,7 +51,7 @@ def test_codebase_modules_and_symbol_index_capture_python_facts(
         "fetch",
         "_load",
     ]
-
+        
     symbols = understanding["symbols"]
     assert symbols == [
         {
