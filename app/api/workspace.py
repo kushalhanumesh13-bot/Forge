@@ -40,8 +40,43 @@ class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=512)
 
 
+# Windows reserved device names (case-insensitive)
+_WIN_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+
+
+def _is_windows_reserved(name: str) -> bool:
+    """Check if a path component is a Windows reserved device name."""
+    # Handle names with extensions (e.g., CON.txt, CON.)
+    base = name.split(".", 1)[0].upper()
+    return base in _WIN_RESERVED_NAMES
+
+
 def _workspace_path(relative_path: str) -> Path:
     """Resolve a workspace-relative path without allowing traversal or symlinks."""
+    if not isinstance(relative_path, str):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid workspace path",
+        )
+
+    # Reject empty or whitespace-only paths
+    if not relative_path or not relative_path.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Path must be a non-empty string",
+        )
+
+    # Reject paths with trailing slashes (indicate directory, not file)
+    if relative_path.endswith("/") or relative_path.endswith("\\"):
+        raise HTTPException(
+            status_code=400,
+            detail="Path must not end with a directory separator",
+        )
+
     try:
         supplied = Path(relative_path)
     except (TypeError, ValueError, OSError, RuntimeError) as error:
@@ -60,6 +95,22 @@ def _workspace_path(relative_path: str) -> Path:
         raise HTTPException(
             status_code=400,
             detail="Path must stay inside the workspace",
+        )
+
+    # Reject Windows reserved names in any path component
+    for part in supplied.parts:
+        if part not in ("", ".") and _is_windows_reserved(part):
+            raise HTTPException(
+                status_code=400,
+                detail="Path component uses a reserved device name",
+            )
+
+    # Reject trailing dots, spaces, or control characters in the final component
+    final_part = supplied.parts[-1] if supplied.parts else ""
+    if final_part.endswith(".") or final_part.rstrip() != final_part:
+        raise HTTPException(
+            status_code=400,
+            detail="Path must not end with a dot, space, or control character",
         )
 
     candidate = ROOT / supplied

@@ -20,11 +20,12 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 def forge_workspace():
     return FileResponse("app/static/index.html")
 
+
 @app.get("/health")
 def health_check():
     return {
         "status": "ok",
         "service": "Forge",
         "version": "0.1.0"
-        
+
     }

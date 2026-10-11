@@ -240,6 +240,20 @@ def _path_is_absolute(value: str) -> bool:
     )
 
 
+# Windows reserved device names (case-insensitive)
+_WIN_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+
+
+def _is_windows_reserved(name: str) -> bool:
+    """Check if a path component is a Windows reserved device name."""
+    base = name.split(".", 1)[0].upper()
+    return base in _WIN_RESERVED_NAMES
+
+
 def _normalise_relative_path(value: object) -> tuple[tuple[str, ...] | None, ToolError | None]:
     if not isinstance(value, str) or not value.strip():
         return None, ToolError(
@@ -257,18 +271,43 @@ def _normalise_relative_path(value: object) -> tuple[tuple[str, ...] | None, Too
             "Absolute paths are not allowed.",
         )
 
+    # Reject paths with trailing slashes (indicate directory, not file)
+    if value.endswith("/") or value.endswith("\\"):
+        return None, ToolError(
+            "validation_error",
+            "Path must not end with a directory separator",
+        )
+
     raw_parts = value.replace("\\", "/").split("/")
     if any(part == ".." for part in raw_parts):
         return None, ToolError(
             "path_violation",
             "Path traversal outside the repository is not allowed.",
         )
+
+    # Reject Windows reserved names in any path component
+    for part in raw_parts:
+        if part not in ("", ".") and _is_windows_reserved(part):
+            return None, ToolError(
+                "path_violation",
+                "Path component uses a reserved device name",
+            )
+
     parts = tuple(part for part in raw_parts if part not in {"", "."})
     if not parts:
         return None, ToolError(
             "validation_error",
             "A file path is required.",
         )
+
+    # Reject trailing dots, spaces, or control characters in the final component
+    final_part = parts[-1]
+    if final_part.endswith(".") or final_part.rstrip() != final_part:
+        return None, ToolError(
+            "validation_error",
+            "Path must not end with a dot, space, or control character",
+        )
+
     return parts, None
 
 
