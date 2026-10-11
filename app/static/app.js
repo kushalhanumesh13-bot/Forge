@@ -13,8 +13,10 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
+const $$ = (selector, context = document) => context.querySelectorAll(selector);
+
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
-  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  "&": "&", "<": "<", ">": ">", '"': "”", "'": "’",
 }[char]));
 
 async function api(url, options = {}) {
@@ -26,10 +28,10 @@ async function api(url, options = {}) {
   return response.json();
 }
 
-function toast(message, error = false) {
+function toast(message, type = "info") {
   const node = $("toast");
   node.textContent = message;
-  node.className = `toast show${error ? " error" : ""}`;
+  node.className = `toast show ${type}`;
   clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(() => { node.className = "toast"; }, 3000);
 }
@@ -66,7 +68,24 @@ function log(message, icon = "•") {
 
 function fileIcon(path) {
   const extension = path.split(".").pop().toLowerCase();
-  return extension === "py" ? "◆" : extension === "md" ? "▤" : extension === "json" ? "{}" : "·";
+  const icons = {
+    py: "◆",
+    md: "▤",
+    json: "{}",
+    js: "◈",
+    ts: "◈",
+    html: "⟠",
+    css: "⌘",
+    yaml: "≡",
+    yml: "≡",
+    toml: "⚙",
+    rs: "⟢",
+    go: "▲",
+    sh: "▸",
+    dockerfile: "◆",
+    txt: "·",
+  };
+  return icons[extension] || "·";
 }
 
 function fileRow(file, depth) {
@@ -83,7 +102,7 @@ function folderRow(name, node, depth) {
   const files = node.files.sort((a, b) => a.path.localeCompare(b.path)).map((file) => fileRow(file, depth + 1)).join("");
   return `<div class="tree-folder"><div class="tree-row folder" data-folder="${esc(key)}" style="padding-left:${8 + depth * 14}px">
     <span class="twisty">▾</span><span class="file-symbol">▰</span><span class="file-name">${esc(name)}</span></div>
-    <div data-children="${esc(key)}">${folders}${files}</div></div>`;
+    <div class="tree-children" data-children="${esc(key)}">${folders}${files}</div></div>`;
 }
 
 function buildTree() {
@@ -100,16 +119,24 @@ function buildTree() {
   const folders = Object.keys(root.folders).sort().map((name) => folderRow(name, root.folders[name], 1)).join("");
   const files = root.files.sort((a, b) => a.path.localeCompare(b.path)).map((file) => fileRow(file, 0)).join("");
   $("tree").innerHTML = `<div class="tree-folder"><div class="tree-row folder" style="padding-left:8px">
-    <span class="twisty">▾</span><span class="file-symbol">▰</span><span class="file-name">${esc(workspaceName())}</span></div><div>${folders}${files}</div></div>`;
+    <span class="twisty">▾</span><span class="file-symbol">▰</span><span class="file-name">${esc(workspaceName())}</span></div><div class="tree-children">${folders}${files}</div></div>`;
   $("file-count").textContent = `${state.files.length} files`;
-  document.querySelectorAll("[data-folder]").forEach((row) => row.addEventListener("click", () => {
-    const child = document.querySelector(`[data-children="${row.dataset.folder}"]`);
-    const closed = child.classList.toggle("hidden");
-    row.querySelector(".twisty").textContent = closed ? "▸" : "▾";
-  }));
-  document.querySelectorAll("[data-file]").forEach((row) => row.addEventListener("click", () => {
-    openFile(decodeURIComponent(row.dataset.file));
-  }));
+
+  // Folder toggle handlers
+  $$("[data-folder]").forEach((row) => {
+    row.addEventListener("click", (e) => {
+      if (e.target.closest(".twisty") || e.target === row) {
+        const child = document.querySelector(`[data-children="${row.dataset.folder}"]`);
+        const twisty = row.querySelector(".twisty");
+        const closed = child.classList.toggle("hidden");
+        twisty.classList.toggle("collapsed", closed);
+        twisty.textContent = closed ? "▸" : "▾";
+      }
+    });
+  });
+
+  // File click handlers
+  $$("[data-file]").forEach((row) => row.addEventListener("click", () => openFile(decodeURIComponent(row.dataset.file))));
 }
 
 async function loadAnalysis() {
@@ -135,7 +162,7 @@ async function loadAnalysis() {
   } catch (error) {
     setStatus("Error");
     log(`Analysis failed · ${error.message}`, "!");
-    toast(error.message, true);
+    toast(error.message, "error");
   }
 }
 
@@ -149,9 +176,7 @@ async function loadChanges() {
       ? state.changes.map((change) => `<div class="change-row" data-change="${encodeURIComponent(change.path)}">
         <span class="change-status">${esc(change.status)}</span><span class="change-path">${esc(change.path)}</span></div>`).join("")
       : '<div class="empty-side">No changes yet<br><small>Forge modifications will appear here.</small></div>';
-    document.querySelectorAll("[data-change]").forEach((row) => row.addEventListener("click", () => {
-      showDiff(decodeURIComponent(row.dataset.change));
-    }));
+    $$("[data-change]").forEach((row) => row.addEventListener("click", () => showDiff(decodeURIComponent(row.dataset.change))));
   } catch (error) {
     log(`Could not load changes · ${error.message}`, "!");
   }
@@ -170,7 +195,7 @@ async function openFile(path) {
     renderEditor();
     log(`Read ${path}`, "↳");
   } catch (error) {
-    toast(`Unable to read ${path}: ${error.message}`, true);
+    toast(`Unable to read ${path}: ${error.message}`, "error");
     log(`Read failed · ${path}`, "!");
   }
 }
@@ -181,11 +206,11 @@ function renderTabs() {
       <span class="${state.dirty.has(path) ? "dirty" : ""}">${state.dirty.has(path) ? "● " : ""}${esc(path.split("/").pop())}</span>
       <button class="close" data-close="${encodeURIComponent(path)}" aria-label="Close ${esc(path)}">×</button>
     </div>`).join("") : '<div class="empty-tab">Select a file from Explorer</div>';
-  document.querySelectorAll("[data-tab]").forEach((tab) => tab.addEventListener("click", (event) => {
+  $$("[data-tab]").forEach((tab) => tab.addEventListener("click", (event) => {
     if (event.target.closest("[data-close]")) return;
     state.activePath = decodeURIComponent(tab.dataset.tab); renderTabs(); renderEditor();
   }));
-  document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", (event) => {
+  $$("[data-close]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
     const path = decodeURIComponent(button.dataset.close);
     if (state.dirty.has(path) && !window.confirm(`Discard unsaved changes in ${path}?`)) return;
@@ -197,7 +222,7 @@ function renderTabs() {
 
 function highlight(source) {
   let html = esc(source);
-  html = html.replace(/(&quot;.*?&quot;|&#39;.*?&#39;)/g, '<span class="tok-string">$1</span>');
+  html = html.replace(/(".*?"|'.*?')/g, '<span class="tok-string">$1</span>');
   html = html.replace(/(^|\n)(\s*#.*)/g, '$1<span class="tok-comment">$2</span>');
   html = html.replace(/\b(def|class|return|from|import|if|else|elif|for|in|not|and|or|True|False|None|async|await|with|as|try|except|raise)\b/g, '<span class="tok-keyword">$1</span>');
   return html.replace(/\b(\d+)\b/g, '<span class="tok-number">$1</span>');
@@ -214,7 +239,7 @@ function renderEditor() {
   $("line-numbers").textContent = content ? content.split("\n").map((_, index) => index + 1).join("\n") : " ";
   $("code-highlight").innerHTML = highlight(content);
   $("status-path").textContent = `${workspaceName()} / ${state.activePath || "workspace"}`;
-  document.querySelectorAll("[data-file]").forEach((row) => row.classList.toggle("selected", decodeURIComponent(row.dataset.file) === state.activePath));
+  $$("[data-file]").forEach((row) => row.classList.toggle("selected", decodeURIComponent(row.dataset.file) === state.activePath));
 }
 
 function markDirty() {
@@ -230,17 +255,23 @@ async function saveFile() {
   if (!state.activePath) return;
   try {
     await api("/api/file/write", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: state.activePath, content: $("editor").value }) });
-    state.dirty.delete(state.activePath); renderTabs(); buildTree(); toast("Saved"); log(`Updated ${state.activePath}`, "✓"); await loadChanges();
-  } catch (error) { toast(`Unable to save ${state.activePath}: ${error.message}`, true); log(`Save failed · ${error.message}`, "!"); }
+    state.dirty.delete(state.activePath); renderTabs(); buildTree(); toast("Saved", "success"); log(`Updated ${state.activePath}`, "✓"); await loadChanges();
+  } catch (error) { toast(`Unable to save ${state.activePath}: ${error.message}`, "error"); log(`Save failed · ${error.message}`, "!"); }
 }
 
 function setView(view) {
   state.activeView = view;
-  document.querySelectorAll(".rail-button[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+  $$(".rail-button[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   ["explorer", "search", "changes", "tasks"].forEach((name) => $(`${name}-view`).classList.toggle("hidden", name !== view));
   const labels = { explorer: ["WORKSPACE", "Explorer"], search: ["WORKSPACE", "Search"], changes: ["SOURCE CONTROL", "Changes"], tasks: ["WORKSPACE", "Tasks"] };
   $("side-eyebrow").textContent = labels[view][0]; $("side-title").textContent = labels[view][1];
   if (view === "changes") loadChanges();
+
+  // Close sidebar on mobile after selection
+  if (window.innerWidth < 1024) {
+    $("sidebar").classList.remove("open");
+    $$(".sidebar-overlay").forEach((el) => el.classList.remove("visible"));
+  }
 }
 
 async function searchRepository() {
@@ -249,15 +280,15 @@ async function searchRepository() {
   try {
     const data = await api("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }) });
     $("search-meta").textContent = `${data.match_count || 0} matches`;
-    $("search-results").innerHTML = data.matches?.map((match) => `<div class="result" data-result="${encodeURIComponent(match.path)}"><div class="result-path">${esc(match.path)}</div><div class="result-line"><b>${match.line}</b> · ${esc(match.snippet)}</div></div>`).join("") || '<div class="empty-side">No matches found.</div>';
-    document.querySelectorAll("[data-result]").forEach((row) => row.addEventListener("click", () => openFile(decodeURIComponent(row.dataset.result))));
-  } catch (error) { toast(error.message, true); }
+    $("search-results").innerHTML = data.matches?.map((match) => `<div class="result-row" data-result="${encodeURIComponent(match.path)}"><div class="result-path">${esc(match.path)}</div><div class="result-line"><b>${match.line}</b> · ${esc(match.snippet)}</div></div>`).join("") || '<div class="empty-side">No matches found.</div>';
+    $$("[data-result]").forEach((row) => row.addEventListener("click", () => openFile(decodeURIComponent(row.dataset.result))));
+  } catch (error) { toast(error.message, "error"); }
 }
 
 async function showDiff(path) {
   setView("changes"); openFile(path);
   try { const data = await api(`/api/changes/diff?path=${encodeURIComponent(path)}`); if (data.diff) { $("output-log").textContent = data.diff; setDock("output"); } else toast("No textual diff available for this file"); }
-  catch (error) { toast(error.message, true); }
+  catch (error) { toast(error.message, "error"); }
 }
 
 function renderPlan(result) {
@@ -275,16 +306,16 @@ function renderPlan(result) {
 
 async function generatePlan() {
   const description = $("task").value.trim();
-  if (!description) { toast("Describe an engineering change to begin", true); return; }
+  if (!description) { toast("Describe an engineering change to begin", "error"); return; }
   setStatus("Planning", true); $("generate").disabled = true; log(`Generating plan · ${description}`, "◌");
-  try { const result = await api("/api/task/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description }) }); renderPlan(result); setStatus("Ready"); log(`Plan generated · ${result.plan.steps.length} steps`, "✓"); setView("tasks"); toast("Engineering plan ready"); }
-  catch (error) { setStatus("Ready"); log(`Planning failed · ${error.message}`, "!"); toast(error.message, true); }
+  try { const result = await api("/api/task/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description }) }); renderPlan(result); setStatus("Ready"); log(`Plan generated · ${result.plan.steps.length} steps`, "✓"); setView("tasks"); toast("Engineering plan ready", "success"); }
+  catch (error) { setStatus("Ready"); log(`Planning failed · ${error.message}`, "!"); toast(error.message, "error"); }
   finally { $("generate").disabled = false; }
 }
 
 function setDock(name) {
-  document.querySelectorAll(".dock-tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.dock === name));
-  document.querySelectorAll(".dock-content").forEach((content) => content.classList.toggle("active", content.id === `dock-${name}`));
+  $$(".dock-tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.dock === name));
+  $$(".dock-content").forEach((content) => content.classList.toggle("active", content.id === `dock-${name}`));
   $("bottom-dock").classList.remove("collapsed");
 }
 
@@ -296,31 +327,73 @@ async function runCommand() {
     const match = (result.output || "").match(/(\d+) passed(?:, (\d+) skipped)?(?:, (\d+) failed)?/);
     const passed = match ? Number(match[1]) : 0; const skipped = match ? Number(match[2] || 0) : 0; const failed = result.exitCode === 0 ? 0 : Number(match?.[3] || 1);
     $("test-summary").innerHTML = `<div class="test-metric"><strong>${passed}</strong><span>passed</span></div><div class="test-metric"><strong>${skipped}</strong><span>skipped</span></div><div class="test-metric ${failed ? "failed" : ""}"><strong>${failed}</strong><span>failed</span></div><div class="test-command">${esc(command)}<br>exit code ${result.exitCode}</div>`;
-    setStatus(result.exitCode === 0 ? "Ready" : "Test failure"); log(result.exitCode === 0 ? "Tests passed" : "Tests failed", result.exitCode === 0 ? "✓" : "!"); toast(result.exitCode === 0 ? "Tests passed" : "Tests failed", result.exitCode !== 0);
-  } catch (error) { setStatus("Error"); $("terminal-output").textContent = error.message; log(`Command failed · ${error.message}`, "!"); toast(error.message, true); }
+    setStatus(result.exitCode === 0 ? "Ready" : "Test failure"); log(result.exitCode === 0 ? "Tests passed" : "Tests failed", result.exitCode === 0 ? "✓" : "!"); toast(result.exitCode === 0 ? "Tests passed" : "Tests failed", result.exitCode !== 0 ? "error" : "success");
+  } catch (error) { setStatus("Error"); $("terminal-output").textContent = error.message; log(`Command failed · ${error.message}`, "!"); toast(error.message, "error"); }
   finally { $("run-command").disabled = false; }
 }
 
 const commands = [
-  ["Open File", "Ctrl P", () => quickOpen()], ["Search Repository", "Ctrl ⇧ F", () => setView("search")], ["Run Tests", "", () => runCommand()], ["Show Changes", "", () => setView("changes")], ["Start Forge Task", "", () => { setView("tasks"); $("task").focus(); }], ["Analyze Repository", "", () => loadAnalysis()], ["Toggle Terminal", "Ctrl `", () => $("bottom-dock").classList.toggle("collapsed")], ["Toggle Explorer", "Ctrl B", () => $("sidebar").classList.toggle("hidden")],
+  ["Open File", "Ctrl P", () => quickOpen()], ["Search Repository", "Ctrl ⇧ F", () => setView("search")], ["Run Tests", "", () => runCommand()], ["Show Changes", "", () => setView("changes")], ["Start Forge Task", "", () => { setView("tasks"); $("task").focus(); }], ["Analyze Repository", "", () => loadAnalysis()], ["Toggle Terminal", "Ctrl `", () => $("bottom-dock").classList.toggle("collapsed")], ["Toggle Explorer", "Ctrl B", () => $("sidebar").classList.toggle("open")],
 ];
 
 function palette(filter = "") {
   const items = commands.filter((item) => item[0].toLowerCase().includes(filter.toLowerCase()));
   $("palette-results").innerHTML = items.map((item, index) => `<button class="palette-command" data-command="${index}"><span>${esc(item[0])}</span><kbd>${item[1]}</kbd></button>`).join("") || '<div class="empty-side">No commands found.</div>';
-  document.querySelectorAll("[data-command]").forEach((button) => button.addEventListener("click", () => { closePalette(); items[Number(button.dataset.command)][2](); }));
+  $$("[data-command]").forEach((button) => button.addEventListener("click", () => { closePalette(); items[Number(button.dataset.command)][2](); }));
 }
 function openPalette() { $("modal-backdrop").classList.remove("hidden"); $("palette-title").textContent = "Command palette"; $("palette-input").placeholder = "Type a command…"; $("palette-input").value = ""; palette(); $("palette-input").focus(); }
 function closePalette() { $("modal-backdrop").classList.add("hidden"); }
-function renderQuickFiles(filter = "") { const files = state.files.filter((file) => file.path.toLowerCase().includes(filter.toLowerCase())).slice(0, 50); $("palette-results").innerHTML = files.map((file) => `<button class="palette-command" data-quick="${encodeURIComponent(file.path)}"><span>${esc(file.path)}</span><kbd>${fileIcon(file.path)}</kbd></button>`).join("") || '<div class="empty-side">No matching files.</div>'; document.querySelectorAll("[data-quick]").forEach((button) => button.addEventListener("click", () => { closePalette(); openFile(decodeURIComponent(button.dataset.quick)); })); }
+function renderQuickFiles(filter = "") { const files = state.files.filter((file) => file.path.toLowerCase().includes(filter.toLowerCase())).slice(0, 50); $("palette-results").innerHTML = files.map((file) => `<button class="palette-command" data-quick="${encodeURIComponent(file.path)}"><span>${esc(file.path)}</span><kbd>${fileIcon(file.path)}</kbd></button>`).join("") || '<div class="empty-side">No matching files.</div>'; $$("[data-quick]").forEach((button) => button.addEventListener("click", () => { closePalette(); openFile(decodeURIComponent(button.dataset.quick)); })); }
 function quickOpen() { $("modal-backdrop").classList.remove("hidden"); $("palette-title").textContent = "Quick open"; $("palette-input").placeholder = "Search files…"; $("palette-input").value = ""; renderQuickFiles(); $("palette-input").focus(); }
 
-$("editor").addEventListener("input", markDirty);
-$("editor").addEventListener("scroll", () => { $("line-numbers").scrollTop = $("editor").scrollTop; $("code-highlight").scrollTop = $("editor").scrollTop; $("code-highlight").scrollLeft = $("editor").scrollLeft; });
-$("save").addEventListener("click", saveFile); $("generate").addEventListener("click", generatePlan); $("run-command").addEventListener("click", runCommand); $("refresh").addEventListener("click", loadAnalysis); $("quick-open").addEventListener("click", quickOpen); $("command-open").addEventListener("click", openPalette); $("palette-close").addEventListener("click", closePalette);
-$("modal-backdrop").addEventListener("click", (event) => { if (event.target.id === "modal-backdrop") closePalette(); }); $("palette-input").addEventListener("input", (event) => { if ($("palette-title").textContent === "Quick open") renderQuickFiles(event.target.value); else palette(event.target.value); }); $("search-input").addEventListener("input", searchRepository); $("search-input").addEventListener("keydown", (event) => { if (event.key === "Enter") searchRepository(); }); $("task").addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") generatePlan(); });
-document.querySelectorAll(".rail-button[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view))); document.querySelectorAll(".dock-tab").forEach((tab) => tab.addEventListener("click", () => setDock(tab.dataset.dock)));
-$("dock-toggle").addEventListener("click", () => $("bottom-dock").classList.toggle("collapsed")); $("sidebar-close").addEventListener("click", () => $("sidebar").classList.add("hidden")); $("context-close").addEventListener("click", () => $("context-panel").classList.add("hidden")); $("home").addEventListener("click", () => { $("context-panel").classList.remove("hidden"); setView("explorer"); });
-document.addEventListener("keydown", (event) => { const mod = event.ctrlKey || event.metaKey; if (mod && event.shiftKey && event.key.toLowerCase() === "p") { event.preventDefault(); openPalette(); return; } if (mod && event.key.toLowerCase() === "s") { event.preventDefault(); saveFile(); } if (mod && event.key.toLowerCase() === "p") { event.preventDefault(); quickOpen(); } if (mod && event.shiftKey && event.key.toLowerCase() === "f") { event.preventDefault(); setView("search"); $("search-input").focus(); } if (mod && event.key === "`") $("bottom-dock").classList.toggle("collapsed"); if (mod && event.key.toLowerCase() === "b") $("sidebar").classList.toggle("hidden"); if (event.key === "Escape") closePalette(); });
+// Sync editor scroll with line numbers and highlight
+$("editor").addEventListener("scroll", () => {
+  $("line-numbers").scrollTop = $("editor").scrollTop;
+  $("code-highlight").scrollTop = $("editor").scrollTop;
+  $("code-highlight").scrollLeft = $("editor").scrollLeft;
+});
 
+$("editor").addEventListener("input", markDirty);
+$("save").addEventListener("click", saveFile);
+$("generate").addEventListener("click", generatePlan);
+$("run-command").addEventListener("click", runCommand);
+$("refresh").addEventListener("click", loadAnalysis);
+$("quick-open").addEventListener("click", quickOpen);
+$("command-open").addEventListener("click", openPalette);
+$("palette-close").addEventListener("click", closePalette);
+$("modal-backdrop").addEventListener("click", (event) => { if (event.target.id === "modal-backdrop") closePalette(); });
+$("palette-input").addEventListener("input", (event) => { if ($("palette-title").textContent === "Quick open") renderQuickFiles(event.target.value); else palette(event.target.value); });
+$("search-input").addEventListener("input", searchRepository);
+$("search-input").addEventListener("keydown", (event) => { if (event.key === "Enter") searchRepository(); });
+$("task").addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") generatePlan(); });
+
+$$(".rail-button[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
+$$(".dock-tab").forEach((tab) => tab.addEventListener("click", () => setDock(tab.dataset.dock)));
+
+$("dock-toggle").addEventListener("click", () => $("bottom-dock").classList.toggle("collapsed"));
+$("sidebar-close").addEventListener("click", () => { $("sidebar").classList.remove("open"); $$(".sidebar-overlay").forEach((el) => el.classList.remove("visible")); });
+$("context-close").addEventListener("click", () => $("context-panel").classList.add("hidden"));
+$("home").addEventListener("click", () => { $("context-panel").classList.remove("hidden"); setView("explorer"); });
+
+// Keyboard shortcuts
+document.addEventListener("keydown", (event) => {
+  const mod = event.ctrlKey || event.metaKey;
+  if (mod && event.shiftKey && event.key.toLowerCase() === "p") { event.preventDefault(); openPalette(); return; }
+  if (mod && event.key.toLowerCase() === "s") { event.preventDefault(); saveFile(); }
+  if (mod && event.key.toLowerCase() === "p") { event.preventDefault(); quickOpen(); }
+  if (mod && event.shiftKey && event.key.toLowerCase() === "f") { event.preventDefault(); setView("search"); $("search-input").focus(); }
+  if (mod && event.key === "`") { $("bottom-dock").classList.toggle("collapsed"); }
+  if (mod && event.key.toLowerCase() === "b") { $("sidebar").classList.toggle("open"); }
+  if (event.key === "Escape") closePalette();
+});
+
+// Mobile sidebar overlay click to close
+document.addEventListener("click", (e) => {
+  if (e.target.classList.contains("sidebar-overlay")) {
+    $("sidebar").classList.remove("open");
+    e.target.classList.remove("visible");
+  }
+});
+
+// Initialize
 loadAnalysis();

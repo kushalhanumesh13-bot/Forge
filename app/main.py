@@ -1,31 +1,22 @@
+from app.api import repository, workspace
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pathlib import Path
 
-from app.api.repository import router as repository_router
-from app.api.workspace import router as workspace_router
+app = FastAPI(title="Forge", version="0.1.0")
 
-app = FastAPI(
-    title="Forge",
-    description="An AI powered engineering workspace.",
-    version="0.1.0",
-)
+app.include_router(repository.router)
+app.include_router(workspace.router)
 
-app.include_router(repository_router)
-app.include_router(workspace_router)
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# Serve static files
+static_dir = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-
-@app.get("/", include_in_schema=False)
-def forge_workspace():
-    return FileResponse("app/static/index.html")
-
+@app.get("/")
+async def root():
+    return FileResponse(static_dir / "index.html")
 
 @app.get("/health")
-def health_check():
-    return {
-        "status": "ok",
-        "service": "Forge",
-        "version": "0.1.0"
-
-    }
+async def health():
+    return {"status": "ok"}
