@@ -9,6 +9,7 @@ IGNORED_DIRECTORIES = {
     "node_modules",
     "__pycache__",
     ".pytest_cache",
+    ".playwright-cli",
 }
 
 IGNORED_FILES = {

@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import shutil
 import subprocess
 import sys
@@ -363,12 +364,22 @@ def run_command(request: CommandRequest):
             detail="Only the repository test command is enabled",
         )
 
+    if os.environ.get("FORGE_TEST_COMMAND_ACTIVE") == "1":
+        return {
+            "commandId": "local-command",
+            "output": "Skipped recursive Forge test-command invocation.\n",
+            "exitCode": 0,
+        }
+
     try:
+        environment = os.environ.copy()
+        environment["FORGE_TEST_COMMAND_ACTIVE"] = "1"
         completed = subprocess.run(
             [sys.executable, "-m", "pytest", "-q"],
             cwd=ROOT,
             capture_output=True,
             text=True,
+            env=environment,
             timeout=120,
             check=False,
         )

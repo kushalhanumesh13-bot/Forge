@@ -1,10 +1,1 @@
-/**
- * Forge Gen 3 Main Stylesheet
- * Imports all modular CSS files in dependency order.
- */
-
-@import "./tokens.css";
-@import "./reset.css";
-@import "./base.css";
-@import "./layout.css";
-@import "./components.css";
+@import "./forge-gen4.css";

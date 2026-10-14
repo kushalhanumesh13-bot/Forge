@@ -4,3 +4,13 @@ __pycache__/
 .pytest_cache/
 .vscode/
 Git/
+.forge/
+.coverage
+.edge-inspect-profile/
+.edge-temp-profile/
+.playwright-cli/
+*.png
+*.yml
+capture_*.js
+inspect_dom.js
+

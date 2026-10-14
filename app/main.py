@@ -1,4 +1,4 @@
-from app.api import repository, workspace
+from app.api import ai_providers, repository, workspace
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -8,6 +8,7 @@ app = FastAPI(title="Forge", version="0.1.0")
 
 app.include_router(repository.router)
 app.include_router(workspace.router)
+app.include_router(ai_providers.router)
 
 # Serve static files
 static_dir = Path(__file__).parent / "static"
@@ -19,4 +20,4 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "service": "Forge", "version": "0.1.0"}
