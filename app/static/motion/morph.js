@@ -255,6 +255,8 @@ export class MorphPanel {
 
     const isSidebar = panel.id === "sidebar";
 
+    // old animation, disconnected by motion upgrade:
+    /*
     if (isSidebar) {
       const workbench = document.getElementById("workbench");
       const clampedP = clamp(p, 0, 1);
@@ -266,6 +268,7 @@ export class MorphPanel {
       panel.style.opacity = clamp(p * 1.5, 0, 1).toFixed(3);
       return;
     }
+    */
 
     // Floating panels (Settings, Keys) - use cached resting geometry to prevent transform feedback loops
     const tGeom = this.cachedTGeom || (trigger ? getElementGeometry(trigger) : null);

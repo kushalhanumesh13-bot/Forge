@@ -1,10 +1,15 @@
 import { MorphPanel, stack, SlidingIndicator, BadgeRoller, FlipGroup, animateFileToTab, Spring, scheduler, Presence, isReducedMotion } from "/static/motion/index.js";
 
 let sidebarMorph = null;
+let sideFlow = null;
 let settingsMorph = null;
+let settingsFlow = null;
 let keysMorph = null;
+let keysFlow = null;
 let contextMorph = null;
 let palettePresence = null;
+let paletteFlow = null;
+let dockFlow = null;
 let dockHeightSpring = null;
 let dockActiveSpring = null;
 let railIndicator = null;
@@ -790,26 +795,79 @@ function updateFind() {
 }
 
 function isSidebarVisible() {
-  if (sidebarMorph) {
-    return sidebarMorph.state === "open" || sidebarMorph.state === "opening";
+  if (sideFlow && sideFlow.live) {
+    return sideFlow.p.target === 1;
   }
   const sidebar = $("sidebar");
   return Boolean(sidebar && sidebar.classList.contains("is-open") && !sidebar.classList.contains("is-collapsed"));
 }
 
-function setSidebarOpen(open) {
+function setSidebarOpen(open, triggerEl) {
   const compact = window.matchMedia("(max-width: 1110px)").matches;
   const sidebar = $("sidebar");
+  const workbench = $("workbench");
+
   if (open) {
     sidebar.classList.toggle("is-open", true);
     sidebar.classList.toggle("is-collapsed", false);
-    sidebarMorph?.open();
+    if (workbench) workbench.classList.remove("explorer-is-collapsed");
+    $("sidebar-scrim").hidden = !compact;
+    $("explorer-open").hidden = true;
+
+    const trigger = triggerEl || document.querySelector(`.rail-button[data-view="${state.activeView}"]`) || document.querySelector('.rail-button[data-view="explorer"]');
+    sideFlow?.to(1, trigger);
   } else {
-    sidebarMorph?.close();
+    // a. do NOT hide the panel here anymore. (Hiding now happens in onSettle('closed'))
+    // b. call sideFlow.to(0)
+    sideFlow?.to(0);
   }
-  $("sidebar-scrim").hidden = !open;
-  $("explorer-open").hidden = open;
-  if (!compact) $("sidebar-scrim").hidden = true;
+}
+
+function openSettings() {
+  const panel = $("settings-panel");
+  if (!panel) return;
+  panel.hidden = false;
+  panel.classList.add("is-open");
+  const btn = document.querySelector('.rail-button[data-view="settings"]');
+  if (btn) btn.classList.add("is-popup-open");
+  settingsFlow?.to(1, btn);
+}
+
+function closeSettings() {
+  settingsFlow?.to(0);
+}
+
+function toggleSettings() {
+  const isOpen = settingsFlow && (settingsFlow.p.target === 1);
+  if (isOpen) {
+    closeSettings();
+  } else {
+    openSettings();
+  }
+}
+
+function openKeys() {
+  if (settingsFlow && settingsFlow.p.target === 1) closeSettings();
+  const panel = $("keys-panel");
+  if (!panel) return;
+  panel.hidden = false;
+  panel.classList.add("is-open");
+  const btn = $("help");
+  if (btn) btn.classList.add("is-popup-open");
+  keysFlow?.to(1, btn);
+}
+
+function closeKeys() {
+  keysFlow?.to(0);
+}
+
+function toggleKeys() {
+  const isOpen = keysFlow && (keysFlow.p.target === 1);
+  if (isOpen) {
+    closeKeys();
+  } else {
+    openKeys();
+  }
 }
 
 function setContextOpen(open) {
@@ -1039,6 +1097,7 @@ function setView(view, { focus = false } = {}) {
 
   if (isSidebarOpen && oldView && oldView !== view && labels[oldView] && labels[view]) {
     switchSideView(oldView, view, labels);
+    sideFlow?.setTrigger(activeBtn);
   } else {
     Object.keys(labels).forEach((name) => {
       const el = $(`${name}-view`);
@@ -1212,19 +1271,7 @@ async function runCommand() {
 }
 
 function closePalette() {
-  const backdrop = $("modal-backdrop");
-  palettePresence?.hide();
-  backdrop.style.opacity = "0";
-  document.getElementById("forge-app")?.classList.remove("motion-receding");
-
-  window.setTimeout(() => {
-    backdrop.hidden = true;
-    backdrop.style.opacity = "";
-    backdrop.style.transition = "";
-  }, 160);
-
-  if (state.returnFocus) state.returnFocus.focus();
-  state.returnFocus = null;
+  paletteFlow?.to(0);
 }
 
 function paletteItems() {
@@ -1266,14 +1313,8 @@ function renderPalette(filter = "", mode = "commands") {
 function openPalette(mode = "commands") {
   state.returnFocus = document.activeElement;
   const backdrop = $("modal-backdrop");
-  palettePresence?.prepareShow();
   backdrop.hidden = false;
-  backdrop.style.opacity = "0";
-  backdrop.style.transition = "opacity 160ms ease-out";
-  void backdrop.offsetHeight;
   backdrop.style.opacity = "1";
-
-  document.getElementById("forge-app")?.classList.add("motion-receding");
 
   $("palette-title").textContent = mode === "files" ? "OPEN LOCAL FILE" : "COMMAND PALETTE";
   $("palette-input").placeholder = mode === "files" ? "Filter repository files..." : "Find an action...";
@@ -1281,77 +1322,51 @@ function openPalette(mode = "commands") {
   $("palette-input").dataset.mode = mode;
   renderPalette("", mode);
 
-  palettePresence?.show();
+  const trigger = $("quick-open") || $("command-open") || document.body;
+  paletteFlow?.to(1, trigger);
   $("palette-input").focus();
+}
+
+function openDock() {
+  const dock = $("bottom-dock");
+  if (!dock) return;
+  dock.classList.remove("is-collapsed");
+  dock.style.height = "190px";
+  $("dock-toggle").setAttribute("aria-expanded", "true");
+  $("dock-toggle").setAttribute("aria-label", "Collapse verification panel");
+  const toggleSvg = $("dock-toggle").querySelector("svg");
+  if (toggleSvg) {
+    toggleSvg.style.transition = "transform var(--t-fast, 160ms) var(--ease-out)";
+    toggleSvg.style.transform = "rotate(180deg)";
+  }
+  const trigger = document.querySelector(".dock-bar") || $("dock-toggle");
+  dockFlow?.to(1, trigger);
+}
+
+function closeDock() {
+  $("dock-toggle").setAttribute("aria-expanded", "false");
+  $("dock-toggle").setAttribute("aria-label", "Expand verification panel");
+  const toggleSvg = $("dock-toggle").querySelector("svg");
+  if (toggleSvg) {
+    toggleSvg.style.transition = "transform var(--t-fast, 160ms) var(--ease-out)";
+    toggleSvg.style.transform = "rotate(0deg)";
+  }
+  dockFlow?.to(0);
 }
 
 function toggleDock() {
   const dock = $("bottom-dock");
   const isCurrentlyCollapsed = dock.classList.contains("is-collapsed");
-  const willExpand = isCurrentlyCollapsed;
-
-  $("dock-toggle").setAttribute("aria-expanded", String(willExpand));
-  $("dock-toggle").setAttribute("aria-label", willExpand ? "Collapse verification panel" : "Expand verification panel");
-
-  const toggleSvg = $("dock-toggle").querySelector("svg");
-  if (toggleSvg) {
-    toggleSvg.style.transition = "transform var(--t-fast, 160ms) var(--ease-out)";
-    toggleSvg.style.transform = willExpand ? "rotate(180deg)" : "rotate(0deg)";
-  }
-
-  if (isReducedMotion()) {
-    dock.classList.toggle("is-collapsed", !willExpand);
-    return;
-  }
-
-  dock.classList.remove("is-collapsed");
-  dock.style.overflow = "hidden";
-
-  const dockContent = dock.querySelectorAll(".dock-content");
-
-  if (!dockHeightSpring) {
-    dockHeightSpring = new Spring({
-      stiffness: 220,
-      damping: 24,
-      mass: 1,
-      value: willExpand ? 41 : 190,
-      target: willExpand ? 190 : 41,
-    });
+  if (isCurrentlyCollapsed) {
+    openDock();
   } else {
-    dockHeightSpring.retarget(willExpand ? 190 : 41);
-  }
-
-  if (!dockActiveSpring) {
-    dockActiveSpring = {
-      step(dt) {
-        const settled = dockHeightSpring.step(dt);
-        const h = dockHeightSpring.value;
-        dock.style.height = `${h.toFixed(1)}px`;
-
-        const p = Math.max(0, Math.min(1, (h - 41) / (190 - 41)));
-        dockContent.forEach((dc) => {
-          dc.style.opacity = p.toFixed(3);
-        });
-
-        if (settled) {
-          dockActiveSpring = null;
-          dock.style.overflow = "";
-          dockContent.forEach((dc) => { dc.style.opacity = ""; });
-          if (!willExpand) {
-            dock.classList.add("is-collapsed");
-            dock.style.height = "";
-          } else {
-            dock.classList.remove("is-collapsed");
-            dock.style.height = "190px";
-          }
-          return true;
-        }
-        return false;
-      },
-    };
-    scheduler.register(dockActiveSpring);
+    closeDock();
   }
 }
+
+/* old animation, disconnected by motion upgrade:
+// Legacy dockHeightSpring and dockActiveSpring
+*/
 
 function activateJourney(name) {
   $$(".journey-step").forEach((button) => button.classList.toggle("is-active", button.dataset.journey === name));
@@ -1489,22 +1504,28 @@ function bindEvents() {
   $$(".rail-button[data-view]").forEach((button) => button.addEventListener("click", () => {
     const view = button.dataset.view;
     if (view === "settings") {
-      settingsMorph?.toggle();
+      toggleSettings();
       return;
     }
     if (view === state.activeView && isSidebarVisible()) {
       setSidebarOpen(false);
       return;
     }
+    const alreadyOpen = isSidebarVisible();
     setView(view);
+    if (alreadyOpen) {
+      sideFlow?.setTrigger(button);
+    } else {
+      setSidebarOpen(true, button);
+    }
   }));
   $$(".journey-step").forEach((button) => button.addEventListener("click", () => activateJourney(button.dataset.journey)));
   $$(".dock-tab").forEach((tab) => tab.addEventListener("click", () => setDock(tab.dataset.dock)));
   $("dock-toggle").addEventListener("click", toggleDock);
   $("sidebar-close").addEventListener("click", () => setSidebarOpen(false));
   $("sidebar-scrim").addEventListener("click", () => setSidebarOpen(false));
-  $("settings-close")?.addEventListener("click", () => settingsMorph?.close());
-  $("keys-close")?.addEventListener("click", () => keysMorph?.close());
+  $("settings-close")?.addEventListener("click", () => closeSettings());
+  $("keys-close")?.addEventListener("click", () => closeKeys());
   $$(".rail-button").forEach((btn) => {
     btn.addEventListener("pointerdown", () => btn.classList.add("is-pressed"));
     const release = () => btn.classList.remove("is-pressed");
@@ -1533,7 +1554,7 @@ function bindEvents() {
   $("home").addEventListener("click", () => {
     setView("explorer");
   });
-  $("help").addEventListener("click", () => keysMorph?.toggle());
+  $("help").addEventListener("click", () => toggleKeys());
   $("boot-retry").addEventListener("click", () => {
     $("boot-failure").hidden = true;
     setBoot("Trying the local workspace again", "Requesting repository analysis.");
@@ -1544,19 +1565,69 @@ function bindEvents() {
     const modifier = event.ctrlKey || event.metaKey;
     if (event.key === "Escape") {
       if (!$("modal-backdrop").hidden) closePalette();
+      else if (settingsFlow && settingsFlow.p.target === 1) closeSettings();
+      else if (keysFlow && keysFlow.p.target === 1) closeKeys();
       else if (window.matchMedia("(max-width: 1110px)").matches) setSidebarOpen(false);
       return;
     }
-    if (modifier && event.shiftKey && event.key.toLowerCase() === "p") { event.preventDefault(); openPalette(); return; }
-    if (modifier && event.shiftKey && event.key.toLowerCase() === "f") { event.preventDefault(); setView("search", { focus: true }); return; }
-    if (modifier && event.key.toLowerCase() === "p") { event.preventDefault(); openPalette("files"); return; }
-    if (modifier && event.key.toLowerCase() === "s") { event.preventDefault(); void saveFile(); return; }
-    if (modifier && event.key === "`") { event.preventDefault(); toggleDock(); return; }
-    if (modifier && event.key.toLowerCase() === "b") { event.preventDefault(); setSidebarOpen(!$("sidebar").classList.contains("is-open")); }
+    if (modifier && event.shiftKey && event.key.toLowerCase() === "p") {
+      event.preventDefault();
+      window.ForgeFX?.pulse(document.querySelector("#command-open"));
+      openPalette();
+      return;
+    }
+    if (modifier && event.shiftKey && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      window.ForgeFX?.pulse(document.querySelector('.rail-button[data-view="search"]'));
+      setView("search", { focus: true });
+      return;
+    }
+    if (modifier && event.key.toLowerCase() === "p") {
+      event.preventDefault();
+      window.ForgeFX?.pulse(document.querySelector("#quick-open"));
+      openPalette("files");
+      return;
+    }
+    if (modifier && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      window.ForgeFX?.pulse(document.querySelector("#save"));
+      void saveFile();
+      return;
+    }
+    if (modifier && event.key === "`") {
+      event.preventDefault();
+      window.ForgeFX?.pulse(document.querySelector("#dock-toggle"));
+      toggleDock();
+      return;
+    }
+    if (modifier && event.key.toLowerCase() === "b") {
+      event.preventDefault();
+      window.ForgeFX?.pulse(document.querySelector('.rail-button[data-view="explorer"]'));
+      setSidebarOpen(!$("sidebar").classList.contains("is-open"));
+    }
   });
+
+  document.addEventListener("pointerdown", (event) => {
+    if (settingsFlow && (settingsFlow.p.target === 1 || (settingsFlow.live && settingsFlow.p.target === 1))) {
+      const panel = $("settings-panel");
+      const btn = document.querySelector('.rail-button[data-view="settings"]');
+      if (panel && !panel.contains(event.target) && btn && !btn.contains(event.target)) {
+        closeSettings();
+      }
+    }
+    if (keysFlow && (keysFlow.p.target === 1 || (keysFlow.live && keysFlow.p.target === 1))) {
+      const panel = $("keys-panel");
+      const btn = $("help");
+      if (panel && !panel.contains(event.target) && btn && !btn.contains(event.target)) {
+        closeKeys();
+      }
+    }
+  }, true);
 }
 
 function initialize() {
+  // old animation, disconnected by motion upgrade:
+  /*
   sidebarMorph = MorphPanel.attach({
     id: "sidebar",
     trigger: () => document.querySelector(`.rail-button[data-view="${state.activeView}"]`) || $("explorer-open"),
@@ -1569,7 +1640,32 @@ function initialize() {
     layoutReflow: { target: "#main-content", container: "#workbench", collapsedClass: "explorer-is-collapsed", axis: "x", size: 274 },
   });
   window.__sidebarMorph = sidebarMorph;
+  */
 
+  sideFlow = window.ForgeFlow.attach({
+    name: 'side',
+    panel: $("sidebar"),
+    trigger: document.querySelector('.rail-button[data-view="explorer"]') || document.querySelector('.rail-button'),
+    knobs: { neck: 0.35, lag: 0.25, stretch: 0.08 },
+    onSettle: function (state) {
+      if (state === 'closed') {
+        const sidebar = $("sidebar");
+        const workbench = $("workbench");
+        sidebar.classList.remove("is-open");
+        sidebar.classList.add("is-collapsed");
+        if (workbench) workbench.classList.add("explorer-is-collapsed");
+        $("sidebar-scrim").hidden = true;
+        $("explorer-open").hidden = false;
+      }
+    }
+  });
+  if (isSidebarVisible()) {
+    sideFlow.p.value = 1;
+    sideFlow.p.target = 1;
+  }
+  window.__sideFlow = sideFlow;
+
+  /* old animation, disconnected by motion upgrade:
   settingsMorph = MorphPanel.attach({
     id: "settings",
     trigger: () => document.querySelector('.rail-button[data-view="settings"]'),
@@ -1578,7 +1674,28 @@ function initialize() {
     anchor: "bottom-left",
     direction: "right",
   });
+  */
 
+  settingsFlow = window.ForgeFlow.attach({
+    name: 'settings',
+    panel: $("settings-panel"),
+    trigger: document.querySelector('.rail-button[data-view="settings"]'),
+    knobs: { open: [0.34, 0.86], close: [0.26, 0.92], neck: 0.10, lag: 0.12, stretch: 0.03, wobble: 0.02 },
+    onSettle: function (state) {
+      if (state === 'closed') {
+        const p = $("settings-panel");
+        if (p) {
+          p.hidden = true;
+          p.classList.remove("is-open");
+        }
+        const btn = document.querySelector('.rail-button[data-view="settings"]');
+        if (btn) btn.classList.remove("is-popup-open");
+      }
+    }
+  });
+  window.__settingsFlow = settingsFlow;
+
+  /* old animation, disconnected by motion upgrade:
   keysMorph = MorphPanel.attach({
     id: "keys",
     trigger: () => $("help"),
@@ -1587,6 +1704,43 @@ function initialize() {
     anchor: "bottom-left",
     direction: "right",
   });
+  */
+
+  keysFlow = window.ForgeFlow.attach({
+    name: 'keys',
+    panel: $("keys-panel"),
+    trigger: $("help"),
+    knobs: { open: [0.34, 0.86], close: [0.26, 0.92], neck: 0.10, lag: 0.12, stretch: 0.03, wobble: 0.02 },
+    onSettle: function (state) {
+      if (state === 'closed') {
+        const p = $("keys-panel");
+        if (p) {
+          p.hidden = true;
+          p.classList.remove("is-open");
+        }
+        const btn = $("help");
+        if (btn) btn.classList.remove("is-popup-open");
+      }
+    }
+  });
+  window.__keysFlow = keysFlow;
+
+  dockFlow = window.ForgeFlow.attach({
+    name: 'dock',
+    panel: $("bottom-dock"),
+    trigger: document.querySelector(".dock-bar") || $("dock-toggle"),
+    knobs: { open: [0.38, 0.88], close: [0.28, 0.92], neck: 0.18, lag: 0.18, stretch: 0.05, wobble: 0.02 },
+    onSettle: function (state) {
+      if (state === 'closed') {
+        const dock = $("bottom-dock");
+        if (dock) {
+          dock.classList.add("is-collapsed");
+          dock.style.height = "";
+        }
+      }
+    }
+  });
+  window.__dockFlow = dockFlow;
 
   railIndicator = new SlidingIndicator({
     container: ".activity-rail",
@@ -1620,6 +1774,7 @@ function initialize() {
     stretch: true,
   });
 
+  /* old animation, disconnected by motion upgrade:
   sidebarMorph.on("opening", () => {
     $("explorer-open").hidden = true;
   });
@@ -1627,6 +1782,7 @@ function initialize() {
     $("sidebar").classList.remove("is-open");
     $("explorer-open").hidden = false;
   });
+  */
 
   dockTabsIndicator = new SlidingIndicator({
     container: ".dock-tabs",
@@ -1636,6 +1792,7 @@ function initialize() {
     stretch: true,
   });
 
+  /* old animation, disconnected by motion upgrade:
   const paletteDialog = document.querySelector(".command-palette");
   if (paletteDialog) {
     palettePresence = new Presence(paletteDialog, {
@@ -1644,9 +1801,30 @@ function initialize() {
       initialScale: 0.96,
     });
   }
+  */
+
+  const paletteDialog = document.querySelector(".command-palette");
+  if (paletteDialog) {
+    paletteFlow = window.ForgeFlow.attach({
+      name: 'palette',
+      panel: paletteDialog,
+      trigger: $("quick-open") || $("command-open") || document.body,
+      knobs: { open: [0.34, 0.86], close: [0.26, 0.92], neck: 0.10, lag: 0.12, stretch: 0.03, wobble: 0.02 },
+      onSettle: function (state) {
+        if (state === 'closed') {
+          const backdrop = $("modal-backdrop");
+          if (backdrop) backdrop.hidden = true;
+          if (state.returnFocus) state.returnFocus.focus();
+          state.returnFocus = null;
+        }
+      }
+    });
+    window.__paletteFlow = paletteFlow;
+  }
 
   reviewBadgeRoller = new BadgeRoller("change-count");
 
+  /* old animation, disconnected by motion upgrade:
   settingsMorph.on("opening", () => {
     const btn = document.querySelector('.rail-button[data-view="settings"]');
     if (btn) btn.classList.add("is-popup-open");
@@ -1655,7 +1833,9 @@ function initialize() {
     const btn = document.querySelector('.rail-button[data-view="settings"]');
     if (btn) btn.classList.remove("is-popup-open");
   });
+  */
 
+  /* old animation, disconnected by motion upgrade:
   keysMorph.on("opening", () => {
     const btn = $("help");
     if (btn) btn.classList.add("is-popup-open");
@@ -1664,13 +1844,20 @@ function initialize() {
     const btn = $("help");
     if (btn) btn.classList.remove("is-popup-open");
   });
+  */
 
   // Sidebar starts open in initial layout
   $("sidebar").classList.add("is-open");
+  /* old animation, disconnected by motion upgrade:
   sidebarMorph.state = "open";
   sidebarMorph.progress = 1;
   sidebarMorph.spring.value = 1;
   sidebarMorph.spring.target = 1;
+  */
+  if (sideFlow) {
+    sideFlow.p.value = 1;
+    sideFlow.p.target = 1;
+  }
 
   // Initial indicators placement
   const initialBtn = document.querySelector(`.rail-button[data-view="${state.activeView}"]`);
