@@ -1,0 +1,63 @@
+@import "./motion/motion.css";
+
+:root {
+  --motion-open: 460ms;
+  --motion-close: 330ms;
+  --motion-glide: cubic-bezier(.22, 1, .36, 1);
+}
+
+.motion-active {
+  --motion-clip: none;
+  --motion-content-opacity: 1;
+  clip-path: var(--motion-clip);
+  transform: none !important;
+  will-change: clip-path, opacity, transform;
+  contain: layout paint;
+}
+
+.motion-active > * {
+  opacity: var(--motion-content-opacity);
+}
+
+
+.motion-landing {
+  animation: motion-landing 380ms var(--motion-glide);
+}
+
+.modal-backdrop.motion-active {
+  background: rgb(28 28 25 / calc(.58 * var(--motion-progress)));
+}
+
+.forge-app.motion-receding {
+  transform: scale(calc(1 - var(--motion-recede)));
+  filter: brightness(var(--motion-brightness));
+}
+
+.motion-slow .motion-active,
+.motion-slow .motion-landing {
+  animation-duration: 10s !important;
+}
+
+@keyframes motion-landing {
+  0% { transform: scale(1); }
+  38% { transform: scale(1.12); }
+  68% { transform: scale(.97); }
+  100% { transform: scale(1); }
+}
+
+@keyframes tree-unfold {
+  from { opacity: 0; clip-path: inset(0 0 100%); }
+  to { opacity: 1; clip-path: inset(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-active {
+    clip-path: none !important;
+    transform: none !important;
+    filter: none !important;
+    transition: opacity 120ms ease-out !important;
+    animation: none !important;
+  }
+  .motion-active > * { opacity: 1; }
+  .motion-landing { animation: none !important; }
+}

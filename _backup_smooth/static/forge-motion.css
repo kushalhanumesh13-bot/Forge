@@ -1,0 +1,16 @@
+:root { --flow-accent: #bd492d; } /* Forge ember accent color from forge-gen4.css */
+
+/* tap feedback: no grey flash on mobile, no double-tap zoom delay */
+[data-fx], button, [role="button"], [role="tab"], summary, .btn {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* panel flow (used by forge-flow.js while a panel is flowing) */
+.ff-active {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+  /* old code, disconnected by lag fix: will-change: clip-path; */
+  contain: layout paint;
+}

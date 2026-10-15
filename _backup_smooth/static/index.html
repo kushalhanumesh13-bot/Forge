@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#20211e">
+  <title>Forge — local engineering workspace</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 20V4h12M5 12h9M10 4v8' fill='none' stroke='%23f4f0e7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css?v=8">
+  <link rel="stylesheet" href="/static/ai-settings.css">
+  <link rel="stylesheet" href="/static/motion/motion.css?v=20261015-1">
+  <link rel="stylesheet" href="/static/forge-motion.css?v=6">
+</head>
+<body>
+  <div class="boot-screen" id="boot-screen" role="status" aria-live="polite" aria-label="Preparing Forge workspace">
+    <div class="boot-shockwave" id="boot-shockwave" aria-hidden="true"></div>
+    <svg class="boot-perimeter" aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <path class="boot-perimeter-progress boot-perimeter-progress-cw" pathLength="200" d="M50 0 H100 V100 H50" fill="none" stroke-linecap="round" />
+      <path class="boot-perimeter-progress boot-perimeter-progress-ccw" pathLength="200" d="M50 0 H0 V100 H50" fill="none" stroke-linecap="round" />
+    </svg>
+    <div class="boot-content">
+      <p class="boot-index">LOCAL / 01</p>
+      <div class="boot-title" aria-label="Forge"><span>F</span><span>O</span><span>R</span><span>G</span><span>E</span></div>
+      <div class="boot-reading"><span class="boot-pulse" aria-hidden="true"></span><div><strong id="boot-label">Opening the workbench</strong><span id="boot-detail">Waiting for the local workspace.</span></div></div>
+      <div class="boot-failure" id="boot-failure" hidden><button class="boot-action" id="boot-retry" type="button">Try again</button><button class="boot-continue" id="boot-continue" type="button">Continue without analysis</button></div>
+    </div>
+    <p class="boot-note">A local engineering workspace</p>
+  </div>
+
+  <div class="forge-app" id="forge-app" aria-busy="true">
+    <header class="topbar" role="banner">
+      <button class="brand" id="home" type="button" aria-label="Return to workspace overview"><span class="brand-mark" aria-hidden="true"><svg><use href="#i-forge"></use></svg></span><span class="brand-word">Forge</span></button>
+      <div class="repo-identity" aria-label="Active repository"><span class="repo-kicker">LOCAL REPOSITORY</span><strong id="repo-title">Preparing workspace</strong><span class="branch" id="branch-name">reading Git state</span></div>
+      <nav class="journey" aria-label="Engineering workflow">
+        <button class="journey-step is-active" type="button" data-journey="understand"><span>01</span>Understand</button>
+        <button class="journey-step" type="button" data-journey="investigate"><span>02</span>Investigate</button>
+        <button class="journey-step" type="button" data-journey="plan"><span>03</span>Plan</button>
+        <button class="journey-step" type="button" data-journey="review"><span>04</span>Review</button>
+        <button class="journey-step" type="button" data-journey="verify"><span>05</span>Verify</button>
+      </nav>
+      <div class="top-actions">
+        <button class="command-trigger" id="quick-open" type="button" aria-label="Open a file" title="Open a file (Ctrl+P)"><svg aria-hidden="true"><use href="#i-search"></use></svg><span>Open</span><kbd>Ctrl P</kbd></button>
+        <button class="icon-button" id="command-open" type="button" aria-label="Open command palette" title="Command palette (Ctrl+Shift+P)"><svg aria-hidden="true"><use href="#i-command"></use></svg></button>
+        <span class="connection" aria-live="polite"><i aria-hidden="true"></i><span id="status">Preparing</span></span>
+        <button class="icon-button" id="refresh" type="button" aria-label="Analyze repository again" title="Analyze repository again"><svg aria-hidden="true"><use href="#i-refresh"></use></svg></button>
+      </div>
+    </header>
+
+    <div class="workbench context-is-minimized" id="workbench">
+      <nav class="activity-rail" aria-label="Workspace sections">
+        <button class="rail-button is-active" data-view="explorer" type="button" aria-label="Repository explorer" aria-pressed="true" title="Repository explorer"><svg aria-hidden="true"><use href="#i-library"></use></svg><span>Explore</span></button>
+        <button class="rail-button" data-view="search" type="button" aria-label="Search repository" aria-pressed="false" title="Search repository"><svg aria-hidden="true"><use href="#i-search"></use></svg><span>Search</span></button>
+        <button class="rail-button" data-view="changes" type="button" aria-label="Review changes" aria-pressed="false" title="Review changes"><svg aria-hidden="true"><use href="#i-branch"></use></svg><span>Review</span><b id="change-count">0</b></button>
+        <button class="rail-button" data-view="tasks" type="button" aria-label="View task plan" aria-pressed="false" title="View task plan"><svg aria-hidden="true"><use href="#i-route"></use></svg><span>Plan</span></button>
+        <span class="rail-spacer" aria-hidden="true"></span>
+        <button class="rail-button" data-view="settings" type="button" aria-label="AI provider settings" aria-pressed="false" title="AI provider settings"><svg aria-hidden="true"><use href="#i-settings"></use></svg><span>Settings</span></button>
+        <button class="rail-button" id="help" type="button" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts"><svg aria-hidden="true"><use href="#i-help"></use></svg><span>Keys</span></button>
+      </nav>
+
+      <aside class="sidebar" id="sidebar" aria-label="Repository explorer">
+        <div class="panel-heading"><div><p class="eyebrow" id="side-eyebrow">01 / ORIENTATION</p><h1 id="side-title">Repository</h1></div><button class="icon-button quiet" id="sidebar-close" type="button" aria-label="Close sidebar" title="Close sidebar"><svg aria-hidden="true"><use href="#i-close"></use></svg></button></div>
+        <section class="side-view" id="explorer-view" aria-label="Repository files">
+          <div class="repo-summary" id="repo-summary" aria-live="polite"><span class="summary-rule" aria-hidden="true"></span><div><strong>Reading repository</strong><span>Gathering local evidence.</span></div></div>
+          <div class="list-heading"><span id="repo-name">Workspace</span><span id="file-count">0 files</span></div>
+          <div class="tree" id="tree" role="tree" tabindex="0" aria-label="Repository files"><p class="side-empty">Repository analysis has not completed yet.</p></div>
+        </section>
+        <section class="side-view" id="search-view" aria-label="Search repository" hidden><label class="search-field" for="search-input"><svg aria-hidden="true"><use href="#i-search"></use></svg><input id="search-input" type="search" autocomplete="off" placeholder="Search source, paths, symbols" aria-label="Search repository"><kbd>Enter</kbd></label><p class="search-meta" id="search-meta">Search the local repository.</p><div class="search-results" id="search-results"></div></section>
+        <section class="side-view" id="changes-view" aria-label="Git changes" hidden><div class="list-heading"><span>WORKTREE</span><span id="changes-count">0 files</span></div><div class="changes-list" id="changes-list"><p class="side-empty">No changes have been read yet.</p></div></section>
+        <section class="side-view" id="tasks-view" aria-label="Engineering task" hidden><div class="task-list" id="task-list"><p class="side-empty">No plan yet.<br><small>Frame an engineering task in the thread panel.</small></p></div></section>
+        <div class="sidebar-resize" id="sidebar-resize" role="separator" aria-label="Resize repository explorer" tabindex="0"></div>
+      </aside>
+
+      <main class="main-stage" id="main-content">
+        <div class="stage-toolbar"><div class="breadcrumbs" id="breadcrumbs" aria-label="Current file path"><span>Workspace</span><span class="crumb-muted">Select a file to inspect</span></div><div class="editor-actions"><button class="panel-reveal" id="explorer-open" type="button" hidden>Explore</button><button class="panel-reveal" id="context-open" type="button" hidden>Plan</button><button class="text-action" id="find-file" type="button" aria-expanded="false">Find</button><button class="save-action" id="save" type="button" disabled>Save <kbd>Ctrl S</kbd></button></div></div>
+        <div class="find-strip" id="file-find" hidden><label for="file-find-input">Find in file</label><input id="file-find-input" type="search" autocomplete="off" placeholder="Text to find"><span id="file-find-count" aria-live="polite"></span><button class="icon-button quiet" id="file-find-close" type="button" aria-label="Close find"><svg aria-hidden="true"><use href="#i-close"></use></svg></button></div>
+        <div class="tabs" id="tabs" role="tablist" aria-label="Open files"><p class="tab-empty">No source in focus</p></div>
+        <section class="editor-surface" id="editor-surface" aria-label="File inspector"><div class="editor-gutter" id="line-numbers" aria-hidden="true"></div><div class="code-scroller" id="code-scroller"><pre class="code-highlight" id="code-highlight" aria-hidden="true"></pre><textarea id="editor" spellcheck="false" disabled aria-label="Code editor" placeholder="Select a file from the repository explorer."></textarea></div><div class="editor-empty" id="editor-empty"><span class="empty-index">OBSERVE / 01</span><strong>Open a source file</strong><p>Select a file from the repository, or search the workspace for a symbol.</p><div class="empty-actions"><button class="empty-action" id="empty-open" type="button">Open file <kbd>Ctrl P</kbd></button><button class="empty-action quiet" id="empty-search" type="button">Search repository</button></div></div></section>
+      </main>
+
+      <aside class="context-panel is-minimized" id="context-panel" aria-label="Engineering thread" aria-hidden="true">
+        <div class="panel-heading"><div><p class="eyebrow">03 / DECISION THREAD</p><h2>Frame the work</h2></div><button class="icon-button quiet" id="context-close" type="button" aria-label="Minimize task panel" title="Minimize task panel"><svg aria-hidden="true"><use href="#i-close"></use></svg></button></div>
+        <div class="task-compose"><label for="task">What needs to change?</label><textarea id="task" rows="4" placeholder="Describe the outcome, constraint, or engineering question..."></textarea><button class="plan-action" id="generate" type="button"><span>Build an evidence-based plan</span><svg aria-hidden="true"><use href="#i-arrow"></use></svg></button></div>
+        <div class="plan-body" id="plan"><div class="plan-empty"><span class="empty-index">AWAITING BRIEF</span><strong>Make the decision legible.</strong><p>Forge will map affected code, related evidence, risks, and verification steps from the local repository.</p></div></div>
+      </aside>
+    </div>
+
+    <section class="bottom-dock is-collapsed" id="bottom-dock" aria-label="Verification panel">
+      <div class="dock-bar" data-ff-keep><div class="dock-title"><span>05</span><strong>Verification</strong></div><div class="dock-tabs" role="tablist" aria-label="Verification views"><button class="dock-tab" data-dock="problems" id="dock-problems-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-problems">Problems <b id="problem-count">0</b></button><button class="dock-tab" data-dock="output" id="dock-output-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-output">Diff</button><button class="dock-tab is-active" data-dock="terminal" id="dock-terminal-tab" type="button" role="tab" aria-selected="true" aria-controls="dock-terminal">Command</button><button class="dock-tab" data-dock="tests" id="dock-tests-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-tests">Results</button><button class="dock-tab" data-dock="activity" id="dock-activity-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-activity">Record <b id="activity-count">0</b></button></div><button class="icon-button quiet" id="dock-toggle" type="button" aria-expanded="true" aria-label="Collapse verification panel" title="Collapse verification panel"><svg aria-hidden="true"><use href="#i-chevron"></use></svg></button></div>
+      <div class="dock-content" id="dock-problems" role="tabpanel" aria-labelledby="dock-problems-tab" hidden><p class="dock-empty">No problems reported by the workspace.</p></div>
+      <div class="dock-content" id="dock-output" role="tabpanel" aria-labelledby="dock-output-tab" hidden><pre id="output-log">Select a changed file to inspect its real Git diff.</pre></div>
+      <div class="dock-content is-active" id="dock-terminal" role="tabpanel" aria-labelledby="dock-terminal-tab"><div class="terminal-command"><span>forge /</span><input id="command" value="python -m pytest -q" aria-label="Allowed test command" spellcheck="false"><button id="run-command" type="button">Run verification</button></div><pre id="terminal-output">Ready. Forge can run the repository's allowed test command.</pre></div>
+      <div class="dock-content" id="dock-tests" role="tabpanel" aria-labelledby="dock-tests-tab" hidden><div class="test-summary" id="test-summary"><p class="dock-empty">No verification has been run.</p></div></div>
+      <div class="dock-content" id="dock-activity" role="tabpanel" aria-labelledby="dock-activity-tab" hidden><div class="activity-list" id="activity"><p class="dock-empty">The local activity record is empty.</p></div></div>
+    </section>
+    <footer class="statusbar" role="status" aria-live="polite"><span id="status-path">Workspace / orientation</span><span id="status-meta">Preparing local evidence</span><span>Ctrl P open · Ctrl Shift P commands · Ctrl ` verify</span></footer>
+  </div>
+
+  <aside class="floating-panel" id="settings-panel" hidden aria-label="AI provider settings">
+    <div class="panel-heading">
+      <div><p class="eyebrow">LOCAL / PROVIDERS</p><h2>AI Providers</h2></div>
+      <button class="icon-button quiet" id="settings-close" type="button" aria-label="Close settings" title="Close settings"><svg aria-hidden="true"><use href="#i-close"></use></svg></button>
+    </div>
+    <form class="ai-settings" id="ai-settings-form">
+      <div class="ai-settings-intro"><span class="empty-index">WORKSPACE KEY</span><p>Choose where Forge should look when AI features are enabled. Keys stay in the local Forge workspace.</p></div>
+      <div class="ai-status" id="ai-status" role="status" aria-live="polite"><span class="ai-status-dot" aria-hidden="true"></span><span id="ai-status-text">Not configured</span></div>
+      <label class="ai-field" for="ai-provider"><span>Provider</span><select id="ai-provider" name="provider"></select></label>
+      <label class="ai-field" for="ai-model"><span>Model name or identifier</span><input id="ai-model" name="model" type="text" maxlength="200" autocomplete="off" required placeholder="llama3.2"></label>
+      <label class="ai-field" for="ai-endpoint"><span>Endpoint</span><input id="ai-endpoint" name="endpoint" type="url" maxlength="500" autocomplete="url" required></label>
+      <label class="ai-field" for="ai-api-key"><span>API key <small id="ai-key-state">Not saved</small></span><input id="ai-api-key" name="api_key" type="password" maxlength="4096" autocomplete="new-password" placeholder="Leave blank to keep the saved key"></label>
+      <p class="ai-help" id="ai-help">Ollama is local-only and does not require an API key.</p>
+      <div class="ai-actions"><button class="ai-primary" id="ai-save" type="submit">Save configuration</button><button class="ai-secondary" id="ai-test" type="button" disabled>Test connection</button><button class="ai-danger" id="ai-remove" type="button" disabled>Remove configuration</button></div>
+      <p class="ai-feedback" id="ai-feedback" role="status" aria-live="polite"></p>
+    </form>
+  </aside>
+
+  <aside class="floating-panel" id="keys-panel" hidden aria-label="Keyboard shortcuts">
+    <div class="panel-heading">
+      <div><p class="eyebrow">HELP / REFERENCE</p><h2>Shortcuts</h2></div>
+      <button class="icon-button quiet" id="keys-close" type="button" aria-label="Close shortcuts" title="Close shortcuts"><svg aria-hidden="true"><use href="#i-close"></use></svg></button>
+    </div>
+    <div class="keys-list">
+      <div class="key-row"><span>Open file</span><kbd>Ctrl P</kbd></div>
+      <div class="key-row"><span>Command palette</span><kbd>Ctrl Shift P</kbd></div>
+      <div class="key-row"><span>Search repository</span><kbd>Ctrl Shift F</kbd></div>
+      <div class="key-row"><span>Save active file</span><kbd>Ctrl S</kbd></div>
+      <div class="key-row"><span>Toggle verification dock</span><kbd>Ctrl `</kbd></div>
+      <div class="key-row"><span>Toggle explorer sidebar</span><kbd>Ctrl B</kbd></div>
+      <div class="key-row"><span>Close topmost surface</span><kbd>Esc</kbd></div>
+    </div>
+  </aside>
+
+  <div id="motion-root"></div>
+  <div class="sidebar-scrim" id="sidebar-scrim" hidden></div>
+  <div class="modal-backdrop" id="modal-backdrop" hidden><section class="command-palette" role="dialog" aria-modal="true" aria-labelledby="palette-title"><div class="palette-header"><span class="eyebrow" id="palette-title">COMMAND PALETTE</span><button class="icon-button quiet" id="palette-close" type="button" aria-label="Close command palette"><svg aria-hidden="true"><use href="#i-close"></use></svg></button></div><label class="palette-input" for="palette-input"><svg aria-hidden="true"><use href="#i-search"></use></svg><input id="palette-input" autocomplete="off" placeholder="Find an action..."></label><div class="palette-results" id="palette-results"></div></section></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <svg class="svg-sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-forge" viewBox="0 0 24 24"><path d="M5 20V4h12M5 12h9M10 4v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.4 4.4" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-command" viewBox="0 0 24 24"><path d="M8 9a3 3 0 1 1-3-3v12a3 3 0 1 1 3-3h8a3 3 0 1 1 3 3V6a3 3 0 1 1-3 3H8Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.6-3.7L3 10m1-5v5h5m-5 3a8 8 0 0 0 14.6 3.7L21 14m-1 5v-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-library" viewBox="0 0 24 24"><path d="M4 5.5h6l1.4 1.7H20v11.3H4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M4 10h16" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+    <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="6" cy="19" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M6 7v10M8 5h3a7 7 0 0 1 7 7v-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24"><path d="M5 5h14M5 12h10M5 19h14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="18" cy="12" r="2.3" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="m12 3 1.1 2.1 2.3.5 1.9-1.2 2.3 2.3-1.2 1.9.5 2.3L21 12l-2.1 1.1-.5 2.3 1.2 1.9-2.3 2.3-1.9-1.2-2.3.5L12 21l-1.1-2.1-2.3-.5-1.9 1.2-2.3-2.3 1.2-1.9-.5-2.3L3 12l2.1-1.1.5-2.3-1.2-1.9 2.3-2.3 1.9 1.2 2.3-.5z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M9.7 9.2a2.5 2.5 0 1 1 4.5 1.5c-.9 1-2.2 1.3-2.2 3M12 16.7h.01" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3.5h8l4 4V20.5H6zM14 3.5v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m9 7-5 5 5 5M15 7l5 5-5 5M13 5l-2 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 6.5h6l1.6 2H20.5v10.8H3.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  </svg>
+  <script src="/static/forge-fx.js?v=7"></script>
+  <script src="/static/forge-fx-config.js?v=3"></script>
+  <script src="/static/forge-flow.js?v=13"></script>
+  <script src="/static/forge-trace.js?v=2"></script>
+  <script type="module" src="/static/app.js?v=20261015-21"></script>
+</body>
+</html>

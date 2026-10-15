@@ -1,0 +1,1037 @@
+<USER_REQUEST>
+##############################################################
+#  FORGE — THE FINAL SMOOTHNESS DOCUMENT
+#  Goal: the smoothest web UI anyone has used. Measured, not guessed.
+#  Read ALL of it first. Then do the phases IN ORDER.
+##############################################################
+
+==============================================================
+SECTION 0 — HOW YOU MUST WORK (read twice)
+==============================================================
+ 1. Do the phases in the exact order written: 0, 1, 2, 3 ... 11.
+ 2. After EVERY numbered step, check its "DONE WHEN" line. If the check
+    fails, fix it BEFORE moving on. Never skip a check.
+ 3. MEASURE BEFORE YOU CHANGE, MEASURE AFTER YOU CHANGE. Every
+    optimisation needs a before number and an after number in
+    SMOOTH_REPORT.md. If the after number is not better, REVERT that
+    change. Never keep a change "because it should be faster".
+ 4. Do not guess. When a step says "find", search the code and write down
+    file:line. Do not invent file names, selectors or function names.
+ 5. Make small edits. Do NOT refactor, rename, reformat, or "clean up"
+    code that a step does not mention.
+ 6. Do NOT delete old code. Disconnect it with a comment:
+    "old code, disconnected by smoothness pass".
+ 7. After editing any JS/CSS, tell me to HARD-RELOAD (Ctrl+Shift+R). Bump
+    the ?v=N number on every script/link URL you changed.
+ 8. No npm packages, no libraries, no new Python packages. Plain
+    JavaScript, CSS, and the Python standard library + FastAPI/Starlette
+    that are already installed.
+ 9. No glassmorphism, no backdrop-filter, no blur, no iOS-style liquid
+    glass. Do not change colors, fonts, layout, copy text, or icon shapes.
+10. Never put motion inside the code editor viewport. Never animate
+    while the user types. Never add work to the typing path.
+11. The click ACTION must happen immediately. Animation is only visual.
+    Never wait for an animation, an event, a timer or the network
+    before running the app logic of a click.
+12. Never fix lag by adding waits, lengthening animations, or lowering
+    visual quality unless a step tells you to.
+13. If something is unclear, do the simplest safe thing and write the
+    question into SMOOTH_REPORT.md under "Open questions".
+14. Work in Edge/Chrome. Test at 100% browser zoom unless a step says
+    otherwise.
+
+==============================================================
+SECTION 1 — THE FROZEN LIST (the most important section)
+==============================================================
+The panel morph ("icon flows like a river into the panel and back"), the
+press/tap bounce, the loading-screen -> home transition, and the sidebar
+content switching are PERFECT. YOU MUST NOT CHANGE THEIR FEEL OR THEIR
+DYNAMICS IN ANY WAY.
+
+FROZEN (read-only) FILES — never edit, reformat, rename or "fix":
+   forge-flow.js          (the morph engine: shape math, springs, z-index 40/41/42)
+   forge-fx.js            (spring engine, press levels, spring settings)
+FROZEN VALUES — never change any of these numbers, anywhere:
+   every knob in every ForgeFlow.attach({...knobs}) call
+       (lag, curve, stretch, neck, wobble, edgeN, cornerN, shadow,
+        iconOnTop, landingBounce, maxMs, open[], close[])
+   ForgeFX.LEVELS (strong / medium / soft numbers)
+   the spring settings table inside forge-fx.js
+FROZEN BEHAVIOUR:
+   - the ORDER inside every open function and every close function:
+       open  = app logic -> (optional soften) -> flow.to(1, icon) -> load data after
+       close = ForgeFlow.pullOut(panel) -> app logic -> (optional soften) -> flow.to(0)
+       onSettle('closed') hides the panel, then ForgeFlow.restore(panel)
+   - the CSS rules  .ff-active  and  --flow-accent  in forge-motion.css
+   - the loading-screen -> home-screen transition code
+   - the sidebar content-switch code (switching Explore/Search/Review/Plan
+     while the panel stays open)
+   - the code editor's look
+YOU MAY: add NEW files, add NEW CSS classes, add lines to
+forge-fx-config.js (additive only: new FX.add(...) lines), edit app code
+for the performance reasons in this document, as long as the frozen
+behaviour above stays identical.
+
+HAZARDS THAT SILENTLY BREAK THE MORPH (never do these):
+   H1. Never add  contain: layout | paint | strict,  transform,  filter,
+       perspective,  or  will-change: transform  to ANY ANCESTOR of a
+       flow panel, the editor shell, the rail, or the header. Reason: an
+       ancestor like that changes what "position: fixed" is relative to,
+       and pullOut() and the blob would land in the wrong place.
+       (Allowed only on LEAF containers INSIDE panels: the file list, the
+       editor viewport, a results list.)
+   H2. Never create an element with z-index 40, 41 or 42. The morph uses
+       them. Things that must appear above the morph use z-index >= 50.
+   H3. Never set transition or animation on the panel's width, height,
+       left, top, margin, clip-path, opacity or translate.
+   H4. Never add an event wait (transitionend/animationend/.finished) to
+       an open/close path.
+   H5. Never call flow.to() from a timer, a promise, or after an await.
+   H6. Never touch the inline styles clip-path, position, z-index of a
+       flow panel from app code.
+
+HOW THE FREEZE IS CHECKED (you will run this at the end of EVERY phase):
+   C-1. SHA-256 of forge-flow.js and forge-fx.js must equal the values
+        saved in FROZEN_MORPH.md.
+   C-2. In the browser console:  ForgeSmooth.verifyMotion(<saved JSON>)
+        must print PASS (it compares every flow knob and ForgeFX.LEVELS).
+   C-3. The frozen app-code snippets saved in FROZEN_MORPH.md must be
+        byte-identical in the files (use the diff command in Phase 11).
+If ANY check fails, REVERT the last change immediately, then retry
+differently. A smoothness gain never justifies a change to the morph.
+
+==============================================================
+SECTION 2 — WHAT "SMOOTHEST EVER" MEANS (the scorecard)
+==============================================================
+All numbers are measured with ForgeSmooth tools on THIS machine.
+Normal run (no throttling):
+  S1. frame time p50 <= 8.4 ms on a 120 Hz screen, <= 16.7 ms on 60 Hz
+  S2. frame time p95 <= 17.5 ms,  p99 <= 26 ms for EVERY scripted step
+  S3. frames over 50 ms: 0 in every step
+  S4. long animation frames (LoAF) per step: <= 2, and none during a
+      panel morph
+  S5. interaction latency (click/keypress -> next paint), p95: <= 100 ms
+      for every interaction (Google's "good" line is 200 ms; ours is
+      stricter)
+  S6. visual feedback of a press: within 1 frame (already true; keep it)
+  S7. typing latency (keydown -> text painted) p95 <= 50 ms in a
+      2,000-line file
+  S8. idle page: 0 running JavaScript animation loops, 0 running CSS
+      animations (except intentional status breathing), CPU ~0
+  S9. no layout shift (nothing jumps after something appears)
+  S10. every API request that a click waits for answers in <= 150 ms
+       (cached or incremental <= 50 ms)
+6x CPU throttle run (DevTools -> Performance -> gear -> CPU: 6x slowdown):
+  T1. p95 <= 33 ms, p99 <= 50 ms, no long task > 100 ms
+  T2. every panel still opens and closes completely (no stuck state)
+Stability:
+  R1. toggle storm of 200 open/close cycles: DOM node count returns to
+      the start value, JS heap growth < 3 MB, no stuck panel
+  R2. all frozen-list checks C-1, C-2, C-3 pass
+
+==============================================================
+PHASE 0 — BACKUP AND FREEZE RECORD
+==============================================================
+0.1 Backup:
+      git repo ->  git add -A && git commit -m "before smoothness pass"
+      no git   ->  copy the whole static/ folder and every edited Python
+                   file into a new folder  _backup_smooth/
+    DONE WHEN: the backup exists.
+
+0.2 Hash the frozen files. Run (works on Windows/Mac/Linux):
+      python -c "import hashlib,sys;[print(hashlib.sha256(open(p,'rb').read()).hexdigest(),p) for p in sys.argv[1:]]" <path>/forge-flow.js <path>/forge-fx.js
+    Create FROZEN_MORPH.md and write the two hashes in it.
+
+0.3 Record the frozen app code. In FROZEN_MORPH.md paste VERBATIM (exact
+    text, with file:line):
+      a) every ForgeFlow.attach({...}) block, complete
+      b) every open function and close function that calls flow.to(...)
+      c) the .ff-active rules and the --flow-accent line from forge-motion.css
+      d) the loading-screen -> home transition code (find it; if it spans
+         several functions, paste all of them)
+      e) the sidebar content-switch code
+    DONE WHEN: FROZEN_MORPH.md contains a-e with file:line for each.
+    (If you cannot find d or e, write "NOT FOUND" and tell me; do not
+    guess.)
+
+0.4 Confirm the lag-fix patches exist: in the browser console
+    typeof ForgeFX.afterIdle must print "function", and
+    typeof ForgeFlow.pullOut must print "function". If not, STOP and tell
+    me: the previous lag-fix document was not applied.
+
+==============================================================
+PHASE 1 — INSTALL THE SMOOTHNESS TOOLKIT (new files only)
+==============================================================
+1.1 Create  forge-smooth.js  next to forge-fx.js. Copy EXACTLY. Do not
+    "improve" it.
+
+=== BEGIN FILE: forge-smooth.js ===
+/* forge-smooth.js — smoothness toolkit. Needs forge-fx.js (with the lag-fix patches).
+   It never changes forge-flow.js, the press feel, or any morph number. */
+(function () {
+  'use strict';
+  if (window.ForgeSmooth) return;
+  const FX = window.ForgeFX;
+  if (!FX || !FX.afterIdle) { console.error('[ForgeSmooth] needs forge-fx.js with the lag-fix patches (ForgeFX.afterIdle)'); return; }
+  const S = {};
+  const reduced = () => FX.reduced();
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const OUT = 'cubic-bezier(.22,1,.36,1)', IN = 'cubic-bezier(.4,0,1,1)';
+  const pct = (a, p) => { if (!a.length) return 0; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
+
+  /* ---------- 1. never block input: yield, chunk, idle, latest ---------- */
+  S.yieldToMain = () => (window.scheduler && typeof scheduler.yield === 'function' ? scheduler.yield() : new Promise((r) => setTimeout(r, 0)));
+  S.chunk = async function (items, fn, budgetMs) { // process a big array without blocking input
+    budgetMs = budgetMs || 8; let t = performance.now();
+    for (let i = 0; i < items.length; i++) {
+      fn(items[i], i);
+      if (performance.now() - t > budgetMs) { await S.yieldToMain(); t = performance.now(); }
+    }
+  };
+  S.idle = (fn, timeout) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: timeout || 600 }) : setTimeout(fn, 50));
+  S.whenCalm = (fn) => FX.afterIdle(() => S.idle(fn)); // after any panel morph AND when the browser is idle
+  S.latest = (fn) => { let id = 0; return async (...a) => { const my = ++id; const r = await fn(...a); return my === id ? r : undefined; }; }; // ignore out-of-order answers
+
+  /* ---------- 2. one shared sliding indicator (underline / highlight block) ---------- */
+  S.indicator = function (o) {
+    const box = o.container;
+    const ind = o.indicator || (function () { const d = document.createElement('span'); d.className = 'fs-ind'; box.appendChild(d); return d; })();
+    if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
+    ind.style.position = 'absolute'; ind.style.left = '0'; ind.style.top = '0'; ind.style.pointerEvents = 'none'; ind.style.transformOrigin = '0 0';
+    const x = new FX.Spring1D(0, 0.05), y = new FX.Spring1D(0, 0.05), w = new FX.Spring1D(0, 0.05), h = new FX.Spring1D(0, 0.05);
+    const R = o.response || [0.30, 0.86], RS = o.sizeResponse || [0.36, 0.90]; // size lags a little = natural stretch
+    let running = false, ready = false;
+    const apply = () => { ind.style.transform = 'translate(' + x.value.toFixed(2) + 'px,' + y.value.toFixed(2) + 'px)'; ind.style.width = Math.max(0, w.value).toFixed(2) + 'px'; ind.style.height = Math.max(0, h.value).toFixed(2) + 'px'; };
+    const wake = () => {
+      if (running) return; running = true;
+      FX.run((dt) => { const m = [x, y, w, h].map((s) => s.step(dt)).some(Boolean); apply(); if (!m) running = false; return m; });
+    };
+    const rectOf = (el) => { const b = box.getBoundingClientRect(), r = el.getBoundingClientRect(); return { x: r.left - b.left + box.scrollLeft, y: r.top - b.top + box.scrollTop, w: r.width, h: r.height }; };
+    function go(el, snap) {
+      if (!el) return;
+      const r = (o.map || ((q) => q))(rectOf(el));
+      x.target = r.x; y.target = r.y; w.target = r.w; h.target = r.h;
+      if (snap || !ready || reduced()) {
+        x.value = r.x; y.value = r.y; w.value = r.w; h.value = r.h; x.velocity = y.velocity = w.velocity = h.velocity = 0;
+        ready = true; apply(); return;
+      }
+      x.tune(R[0], R[1]); y.tune(R[0], R[1]); w.tune(RS[0], RS[1]); h.tune(RS[0], RS[1]);
+      wake();
+    }
+    return { move: (el) => go(el, false), snap: (el) => go(el, true), el: ind };
+  };
+
+  /* ---------- 3. lists, tabs, enter/exit, number roll ---------- */
+  S.flip = function (els, mutate, opts) { // FLIP: neighbours glide to their new place after you change the DOM
+    opts = opts || {}; els = Array.from(els);
+    const first = new Map(els.map((e) => [e, e.getBoundingClientRect()]));
+    mutate();
+    if (reduced()) return;
+    els.forEach((e) => {
+      if (!e.isConnected || !e.animate) return;
+      const a = first.get(e), b = e.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top;
+      if (!dx && !dy) return;
+      e.animate([{ translate: dx + 'px ' + dy + 'px' }, { translate: '0 0' }], { duration: opts.duration || 340, easing: opts.easing || OUT });
+    });
+  };
+  S.enter = function (el, o) {
+    o = o || {}; if (reduced() || !el.animate) return;
+    el.animate([{ opacity: 0, translate: '0 ' + (o.y == null ? 6 : o.y) + 'px', scale: String(o.scale || 0.98) }, { opacity: 1, translate: '0 0', scale: '1' }], { duration: o.ms || 240, easing: OUT });
+  };
+  S.ghostOut = function (el, o) { // fade a copy out where the element WAS; call BEFORE removing the real element
+    o = o || {}; if (reduced() || !el.animate) return Promise.resolve();
+    const r = el.getBoundingClientRect(), g = el.cloneNode(true);
+    g.setAttribute('aria-hidden', 'true'); g.inert = true;
+    g.style.cssText += ';position:fixed;left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + r.height + 'px;margin:0;pointer-events:none;z-index:50;';
+    document.body.appendChild(g);
+    return g.animate([{ opacity: 1, translate: '0 0', scale: '1' }, { opacity: 0, translate: '0 ' + (o.y == null ? 4 : o.y) + 'px', scale: String(o.scale || 0.96) }], { duration: o.ms || 160, easing: IN, fill: 'forwards' }).finished.catch(() => {}).then(() => g.remove());
+  };
+  S.rows = function (wrap, open) { // folder rows: toggles the .fs-rows grid animation (see forge-smooth.css)
+    wrap.classList.toggle('fs-open', !!open);
+    const inner = wrap.firstElementChild; if (inner) inner.inert = !open;
+  };
+  S.roll = function (el, text) { // number/text change: new value rises in
+    text = String(text);
+    if (el.__rollText === text) return;
+    const old = el.__rollText == null ? el.textContent : el.__rollText;
+    el.__rollText = text; el.textContent = text;
+    if (reduced() || old === text || !el.animate) return;
+    if (getComputedStyle(el).display === 'inline') el.style.display = 'inline-block';
+    const dir = (parseFloat(text) || 0) >= (parseFloat(old) || 0) ? 1 : -1;
+    el.animate([{ opacity: 0, translate: '0 ' + (dir * 45) + '%' }, { opacity: 1, translate: '0 0' }], { duration: 200, easing: OUT });
+  };
+
+  /* ---------- 4. data: cache, intent prefetch, invalidate ---------- */
+  const cache = new Map();
+  S.fetchJSON = function (url, o) {
+    o = o || {}; const ttl = o.ttl == null ? 15000 : o.ttl, hit = cache.get(url);
+    if (hit && performance.now() - hit.t < ttl) return hit.p;
+    const p = fetch(url, o.init).then((r) => { if (!r.ok) throw new Error(r.status + ' ' + url); return r.json(); });
+    cache.set(url, { t: performance.now(), p: p }); p.catch(() => cache.delete(url)); return p;
+  };
+  S.invalidate = function (prefix) { for (const k of Array.from(cache.keys())) if (!prefix || k.indexOf(prefix) === 0) cache.delete(k); };
+  S.prefetchOnIntent = function (selector, urlOf) { // start loading when the pointer rests on / presses an item, before the click
+    const seen = new WeakMap(); let timer = 0;
+    const go = (e) => {
+      const el = e.target && e.target.closest && e.target.closest(selector); if (!el) return;
+      const url = urlOf(el); if (!url) return;
+      if (performance.now() - (seen.get(el) || -1e9) < 5000) return;
+      seen.set(el, performance.now()); S.fetchJSON(url).catch(() => {});
+    };
+    document.addEventListener('pointerover', (e) => { if (e.pointerType !== 'mouse') return; clearTimeout(timer); timer = setTimeout(() => go(e), 65); }, { passive: true });
+    document.addEventListener('pointerdown', go, { capture: true, passive: true });
+  };
+
+  /* ---------- 5. measuring: record, bench, HUD, reports ---------- */
+  S.budgets = { p95: 17.5, p99: 26, over50: 0, loaf: 2, evP95: 100 };
+  S.record = function (label) {
+    const R = { frames: [], loaf: [], longtask: 0, ev: [] }, t0 = performance.now(), obs = [];
+    let raf = 0, last = 0, alive = true;
+    const tick = (ts) => { if (!alive) return; if (last) R.frames.push(ts - last); last = ts; raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    const watch = (type, cb, extra) => { try { const o = new PerformanceObserver((l) => l.getEntries().forEach(cb)); o.observe(Object.assign({ type: type }, extra || {})); obs.push(o); } catch (e) {} };
+    watch('long-animation-frame', (e) => R.loaf.push({ ms: Math.round(e.duration), scripts: (e.scripts || []).slice().sort((a, b) => b.duration - a.duration).slice(0, 2).map((s) => Math.round(s.duration) + 'ms ' + (s.sourceFunctionName || s.invoker || '?') + '@' + String(s.sourceURL || '').split('/').pop()) }));
+    watch('longtask', () => { R.longtask++; });
+    watch('event', (e) => { if (e.interactionId) R.ev.push(e.duration); }, { durationThreshold: 16 });
+    return function stop() {
+      alive = false; cancelAnimationFrame(raf); obs.forEach((o) => o.disconnect());
+      const f = R.frames;
+      return { label: label, ms: Math.round(performance.now() - t0), frames: f.length, p50: +pct(f, 0.5).toFixed(1), p95: +pct(f, 0.95).toFixed(1), p99: +pct(f, 0.99).toFixed(1),
+        max: +Math.max(0, ...f).toFixed(1), over25: f.filter((x) => x > 25).length, over50: f.filter((x) => x > 50).length, loaf: R.loaf.length, longtask: R.longtask,
+        evP95: +pct(R.ev, 0.95).toFixed(0), evMax: +Math.max(0, ...R.ev).toFixed(0), worstLoaf: R.loaf.slice().sort((a, b) => b.ms - a.ms)[0] || null };
+    };
+  };
+  S.bench = async function (steps, budgets) {
+    const B = Object.assign({}, S.budgets, budgets || {}), out = [];
+    for (const step of steps) {
+      const stop = S.record(step.name);
+      try { await step.run(); } catch (e) { console.error('[bench] step failed:', step.name, e); }
+      await wait(step.settleMs || 200);
+      const r = stop();
+      r.pass = r.p95 <= B.p95 && r.p99 <= B.p99 && r.over50 <= B.over50 && r.loaf <= B.loaf && r.evP95 <= B.evP95;
+      out.push(r);
+    }
+    console.table(out.map((r) => ({ step: r.label, frames: r.frames, p50: r.p50, p95: r.p95, p99: r.p99, max: r.max, '>25ms': r.over25, '>50ms': r.over50, LoAF: r.loaf, evP95: r.evP95, result: r.pass ? 'PASS' : 'FAIL' })));
+    out.filter((r) => !r.pass && r.worstLoaf).forEach((r) => console.warn('worst long frame in "' + r.label + '": ' + r.worstLoaf.ms + 'ms ' + r.worstLoaf.scripts.join(' | ')));
+    console.log(out.every((r) => r.pass) ? 'ALL STEPS PASS' : 'SOME STEPS FAIL');
+    return out;
+  };
+  S.hud = function (on) { // live fps / worst frame / long frames. Ctrl+Alt+P
+    if (on === undefined) on = !S._hud;
+    if (!on) { if (S._hud) { S._hud.stop(); S._hud = null; } return; }
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;right:8px;bottom:8px;z-index:2147483647;font:11px/1.35 ui-monospace,Consolas,monospace;color:#9f9;background:rgba(0,0,0,.72);padding:6px 8px;border-radius:6px;pointer-events:none;white-space:pre;';
+    document.body.appendChild(el);
+    let raf = 0, last = 0, win = [], loaf = 0, shown = 0, alive = true, o = null;
+    try { o = new PerformanceObserver((l) => { loaf += l.getEntries().length; }); o.observe({ type: 'long-animation-frame' }); } catch (e) {}
+    const tick = (ts) => {
+      if (!alive) return;
+      if (last) { win.push(ts - last); if (win.length > 120) win.shift(); }
+      last = ts;
+      if (ts - shown > 500 && win.length) { shown = ts; const mx = Math.max(...win), avg = win.reduce((a, b) => a + b, 0) / win.length; el.textContent = 'fps ' + (1000 / avg).toFixed(0) + '\nworst ' + mx.toFixed(1) + 'ms\nLoAF ' + loaf; el.style.color = mx > 50 ? '#f66' : mx > 25 ? '#fc6' : '#9f9'; }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    S._hud = { stop: () => { alive = false; cancelAnimationFrame(raf); if (o) o.disconnect(); el.remove(); } };
+  };
+  S.idleReport = function () { // what is still moving on an idle page?
+    const anims = document.getAnimations().filter((a) => a.playState === 'running').map((a) => { const t = a.effect && a.effect.target; return { target: t ? (t.id || (typeof t.className === 'string' && t.className) || t.tagName) : '?', name: a.animationName || a.transitionProperty || 'waapi', infinite: !!(a.effect && a.effect.getComputedTiming().iterations === Infinity) }; });
+    console.log('running animations on an idle page: ' + anims.length); if (anims.length) console.table(anims);
+    return anims;
+  };
+  S.domReport = function () {
+    const total = document.getElementsByTagName('*').length;
+    const top = Array.from(document.body.querySelectorAll('*')).map((el) => [el, el.getElementsByTagName('*').length]).sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map((p) => ({ el: p[0].tagName.toLowerCase() + (p[0].id ? '#' + p[0].id : '') + (typeof p[0].className === 'string' && p[0].className.trim() ? '.' + p[0].className.trim().split(/\s+/)[0] : ''), descendants: p[1] }));
+    console.log('DOM nodes: ' + total); console.table(top); return { total: total, top: top };
+  };
+  S.leakTest = async function (fn, n) {
+    n = n || 100;
+    const nodes0 = document.getElementsByTagName('*').length, h0 = performance.memory ? performance.memory.usedJSHeapSize : 0;
+    for (let i = 0; i < n; i++) { await fn(i); await wait(30); }
+    await wait(1000);
+    const nodes1 = document.getElementsByTagName('*').length, h1 = performance.memory ? performance.memory.usedJSHeapSize : 0;
+    const r = { cycles: n, nodesDelta: nodes1 - nodes0, heapDeltaKB: Math.round((h1 - h0) / 1024) };
+    console.log((r.nodesDelta === 0 && r.heapDeltaKB < 3072 ? 'PASS' : 'FAIL') + ' leak test', r); return r;
+  };
+
+  /* ---------- 6. the freeze guard ---------- */
+  S.dumpMotion = function () {
+    const flows = {}, all = (window.ForgeFlow && ForgeFlow.all) || {};
+    Object.keys(all).forEach((k) => { flows[k] = all[k].knobs; });
+    return JSON.stringify({ levels: FX.LEVELS, flows: flows }, null, 1);
+  };
+  S.verifyMotion = function (baselineJson) {
+    const ok = S.dumpMotion() === (typeof baselineJson === 'string' ? baselineJson : JSON.stringify(baselineJson, null, 1));
+    console.log((ok ? 'PASS' : 'FAIL') + ' morph + press numbers ' + (ok ? 'are unchanged' : 'HAVE CHANGED — revert the last change'));
+    return ok;
+  };
+
+  window.addEventListener('keydown', (e) => { if (e.ctrlKey && e.altKey && (e.key === 'p' || e.key === 'P')) S.hud(); });
+  window.ForgeSmooth = S;
+})();
+=== END FILE: forge-smooth.js ===
+
+1.2 Create  forge-smooth.css  next to forge-motion.css. Copy EXACTLY:
+
+=== BEGIN FILE: forge-smooth.css ===
+:root { --fs-out: cubic-bezier(.22,1,.36,1); --fs-in: cubic-bezier(.4,0,1,1); }
+
+/* Folder rows (file tree). The ONLY allowed layout animation: small subtrees only (see Phase 8.A). */
+.fs-rows { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 280ms var(--fs-out); }
+.fs-rows.fs-open { grid-template-rows: 1fr; }
+.fs-rows > .fs-rows-inner { overflow: hidden; min-height: 0; opacity: 0; transition: opacity 180ms ease-out 40ms; }
+.fs-rows.fs-open > .fs-rows-inner { opacity: 1; }
+.fs-rows.fs-instant, .fs-rows.fs-instant > .fs-rows-inner { transition: none; }
+
+/* Shared sliding indicator: set background/radius in the app's own CSS using the app's own colors */
+.fs-ind { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform; }
+
+/* Long lists: skip rendering rows that are off screen (set the real row height) */
+.fs-long > * { content-visibility: auto; contain-intrinsic-size: auto 28px; }
+
+/* Scroll containers: no scroll chaining, no layout jump when the scrollbar appears */
+.fs-scroller { overscroll-behavior: contain; scrollbar-gutter: stable; }
+
+/* Optional soft shadow under a sticky header while its list is scrolled (compositor-only) */
+@supports (animation-timeline: scroll()) {
+  .fs-scroll-shadow::before {
+    content: ''; position: sticky; top: 0; display: block; height: 10px; margin-bottom: -10px; z-index: 2; pointer-events: none;
+    background: linear-gradient(rgba(0,0,0,.16), transparent); opacity: 0;
+    animation: fs-shadow linear both; animation-timeline: scroll(nearest); animation-range: 0 24px;
+  }
+  @keyframes fs-shadow { to { opacity: 1; } }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fs-rows, .fs-rows > .fs-rows-inner { transition: none; }
+  .fs-scroll-shadow::before { animation: none; opacity: 0; }
+}
+=== END FILE: forge-smooth.css ===
+
+1.3 Add to the HTML template, in this order (match the path style of the
+    other tags; use ?v=1):
+      <link rel="stylesheet" href="…/forge-smooth.css?v=1">   (after forge-motion.css)
+      <script src="…/forge-smooth.js?v=1"></script>           (after forge-trace.js,
+                                                               BEFORE the main app script)
+    DONE WHEN: in the console  typeof ForgeSmooth  prints "object".
+
+1.4 Save the morph baseline. In the console run:
+        copy(ForgeSmooth.dumpMotion())
+    and paste the result into a new file  MORPH_BASELINE.json.
+    DONE WHEN: MORPH_BASELINE.json exists and contains "levels" and one
+    entry per flow under "flows". Then run
+        ForgeSmooth.verifyMotion(<paste the JSON text>)
+    It must print PASS.
+
+1.5 Create  forge-bench.js  (dev tool) next to forge-smooth.js. Fill the
+    selectors from RECON.md / LAG_RECON.md of the earlier tasks (rail icons,
+    panel buttons, palette button). Use this template:
+
+=== BEGIN FILE: forge-bench.js ===
+/* forge-bench.js — scripted run of the main interactions. DEV tool: defines ForgeBench only. */
+(function () {
+  const S = window.ForgeSmooth; if (!S) return;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const tap = (sel) => { // real pointer events, so the press bounce is part of the measurement
+    const el = document.querySelector(sel); if (!el) throw new Error('missing element: ' + sel);
+    const r = el.getBoundingClientRect();
+    const o = { bubbles: true, cancelable: true, pointerId: 9, pointerType: 'mouse', clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };
+    el.dispatchEvent(new PointerEvent('pointerdown', o));
+    setTimeout(() => { el.dispatchEvent(new PointerEvent('pointerup', o)); el.click(); }, 60);
+  };
+  const openClose = (sel) => async () => { tap(sel); await wait(1100); tap(sel); await wait(900); };
+  const storm = (sel, n) => async () => { for (let i = 0; i < n; i++) { tap(sel); await wait(70); } await wait(1300); };
+  window.ForgeBench = {
+    steps: [
+      { name: 'REPLACE: Explore panel open+close',  run: openClose('REPLACE: selector of the Explore rail icon') },
+      { name: 'REPLACE: Search panel open+close',   run: openClose('REPLACE: selector of the Search rail icon') },
+      { name: 'REPLACE: Review panel open+close',   run: openClose('REPLACE: selector of the Review rail icon') },
+      { name: 'REPLACE: Plan panel open+close',     run: openClose('REPLACE: selector of the Plan rail icon') },
+      { name: 'REPLACE: Settings open+close',       run: openClose('REPLACE: selector of the Settings rail icon') },
+      { name: 'REPLACE: Keys open+close',           run: openClose('REPLACE: selector of the Keys rail icon') },
+      { name: 'REPLACE: Verification open+close',   run: openClose('REPLACE: selector of the Verification bar') },
+      { name: 'REPLACE: Palette open+close',        run: openClose('REPLACE: selector of the Open Ctrl P button') },
+      { name: 'REPLACE: Explore tap storm x12',     run: storm('REPLACE: selector of the Explore rail icon', 12) }
+      // ADD one step per other surface found in the recon (dropdowns, modals, tab switches, folder expands...)
+    ],
+    run: () => S.bench(S.__steps || window.ForgeBench.steps),
+    leak: (sel) => S.leakTest(async () => { tap(sel); await wait(1100); tap(sel); await wait(900); }, 100)
+  };
+})();
+=== END FILE: forge-bench.js ===
+    Add <script src="…/forge-bench.js?v=1"></script> after forge-smooth.js.
+    DONE WHEN: no "REPLACE:" text is left, and in the console
+    await ForgeBench.run()  prints a table (it may contain FAILs; that is fine now).
+
+==============================================================
+PHASE 2 — THE BASELINE (nothing is changed in this phase)
+==============================================================
+2.1 Hard-reload. In the console run  await ForgeBench.run()  THREE times.
+    Copy the three tables into SMOOTH_BASELINE.md. (Use the middle run as
+    the official baseline. Big differences between runs = noisy machine:
+    close other apps and repeat.)
+2.2 Idle checks on an idle page (touch nothing for 3 seconds):
+        ForgeSmooth.idleReport()      -> record count + names
+        ForgeSmooth.domReport()       -> record total nodes + top 8 subtrees
+        ForgeTrace.idleCheck()        -> only if ?trace is in the URL
+2.3 Typing test (S7): open a file with about 2,000 lines (if none exists,
+    use the biggest file in the repo). Run  const stop = ForgeSmooth.record('typing')
+    , type 40 characters quickly, then  console.table([stop()]). Record
+    evP95 and evMax. If the page ignores typing (read-only viewer), write
+    "editor is read-only" and skip S7.
+2.4 Throttled baseline: ask me to set DevTools -> Performance -> gear ->
+    CPU: 6x slowdown, then run  await ForgeBench.run()  once and paste the
+    table into SMOOTH_BASELINE.md under "6x throttle". (If I cannot, write
+    "throttled run not available".)
+2.5 Backend baseline (Phase 6 will use it): list which API requests the
+    page makes on startup and on each panel open. Use the Network tab or
+    wrap fetch. Write URL + milliseconds in SMOOTH_BASELINE.md.
+2.6 Rank the problems. In SMOOTH_BASELINE.md write a list "WORST FIRST":
+    every step with FAIL, with its biggest LoAF line (function@file).
+    DONE WHEN: SMOOTH_BASELINE.md has 2.1-2.6. Run the freeze checks
+    (Section 1: C-1, C-2) and write PASS.
+
+==============================================================
+PHASE 3 — INPUT LATENCY (click/keypress -> next paint <= 100 ms)
+==============================================================
+Rule: a handler does the MINIMUM synchronously (state + the visual
+change), and everything else is postponed. Postponed work uses these
+tools, in this order of preference:
+   ForgeSmooth.whenCalm(fn)   -> after any morph, when the browser is idle
+   ForgeSmooth.chunk(items, fn, 8)  -> big loops, yields every 8 ms
+   await ForgeSmooth.yieldToMain()  -> inside a long async function
+3.1 Inventory all event handlers: search the app code for
+    addEventListener, onclick=, onchange=, oninput=, onkeydown=, and
+    jQuery-style .on(. Write a table: element/selector, event, file:line,
+    what it does.
+3.2 EVENT DELEGATION. Any handler attached separately to many repeated
+    elements (file-tree rows, tabs, palette results, list items) must be
+    replaced by ONE listener on the container using event.target.closest(...).
+    (This also makes JS-created rows work with zero extra code.)
+    DONE WHEN: no loop of the form  rows.forEach(r => r.addEventListener(...))
+    remains for repeated items.
+3.3 PASSIVE LISTENERS. Every 'scroll', 'wheel', 'touchstart', 'touchmove'
+    listener gets  { passive: true }  unless it calls preventDefault().
+3.4 For every click handler in the table from 3.1, apply this template:
+       (a) read what you need from the event / DOM (reads FIRST)
+       (b) change state + start the visual change (writes)
+       (c) EVERYTHING ELSE (saving, analytics, re-render of far-away UI,
+           recount badges, localStorage) goes into ForgeSmooth.whenCalm(...)
+    Do NOT touch the frozen open/close functions except to move
+    non-visual work after  flow.to(...)  into whenCalm.
+3.5 STORAGE. localStorage/sessionStorage are synchronous. Any write inside
+    a click/keypress path must be debounced (300 ms) and also flushed on
+    'visibilitychange' -> hidden. Never read localStorage inside a loop.
+3.6 BIG JSON. Any JSON.parse / JSON.stringify of data larger than ~200 KB
+    in a handler must be preceded by  await ForgeSmooth.yieldToMain().
+3.7 STALE ANSWERS. For every fetch whose result updates the UI (file
+    contents, search results, panel data), wrap the loader:
+       const loadFile = ForgeSmooth.latest(async (path) => { ...fetch...; return data; });
+       const data = await loadFile(path);
+       if (data === undefined) return;      // an even newer request exists
+    This also stops results from "flashing" old content after fast clicking.
+3.8 INTENT PREFETCH. For things the user will very likely click next, start
+    loading before the click:
+       ForgeSmooth.prefetchOnIntent('<file-row selector>', (row) => '<the exact API URL that clicking this row will fetch>');
+    and make the real click handler use  ForgeSmooth.fetchJSON(url)  so it
+    hits the cache. After any save/edit/delete call
+       ForgeSmooth.invalidate('<url prefix of the changed data>')
+    Do this ONLY for GET requests that are safe to repeat.
+3.9 SEARCH-AS-YOU-TYPE (palette / search panel): input handlers must be
+    debounced 90 ms, results rendered in chunks (ForgeSmooth.chunk), and
+    capped to the first 50 rows (more on scroll). Typing must never wait
+    for results.
+3.10 Re-run  await ForgeBench.run()  and  the typing test (2.3).
+    DONE WHEN: every step has evP95 <= 100 and no step got worse than its
+    baseline p95/p99. Run freeze checks C-1, C-2: PASS.
+
+==============================================================
+PHASE 4 — RENDERING AND FRAME PACING
+==============================================================
+4.1 ANIMATED PROPERTIES AUDIT. Search all CSS for "transition" and
+    "animation" and all JS for  .style.<prop> =  inside requestAnimationFrame
+    or loops. Write a table: selector, property, file:line. Mark each:
+       OK        = transform / translate / scale / rotate / opacity
+       SMALL-OK  = background-color, color, border-color, outline-*
+                   on small elements (buttons, rows)
+       BAD       = width, height, top, left, right, bottom, margin,
+                   padding, font-size, box-shadow, filter, backdrop-filter,
+                   border-width, line-height on anything BIG
+    Fix every BAD one: convert to transform/opacity, or remove the
+    animation. (Exception: Phase 8.A folder rows.)
+    NEVER touch the frozen morph properties (clip-path on flow panels).
+4.2 SHADOWS. Never animate box-shadow. If a hover shadow exists, put the
+    big shadow on a ::after pseudo-element and fade its opacity.
+4.3 FILTERS. Remove any blur()/drop-shadow()/backdrop-filter on large
+    areas. (The morph uses its own SVG shadow; leave it.)
+4.4 CONTAINMENT (leaf containers only — remember hazard H1):
+    Add  contain: layout paint;  to: the file-tree list, the palette
+    results list, the verification output list, each editor tab's label.
+    Add  contain: strict  ONLY to an element with a fixed size.
+    NEVER on an ancestor of a flow panel / the editor shell / the rail /
+    the header.
+    DONE WHEN: you can list each element you added containment to, and none
+    of them contains a flow panel.
+4.5 WILL-CHANGE HYGIENE. Search the CSS for will-change. Remove any that is
+    permanent and not on the single indicator (.fs-ind) or forge-managed
+    elements. ForgeFX sets/clears will-change by itself.
+4.6 IDLE ANIMATIONS. Run  ForgeSmooth.idleReport()  on an idle page.
+    Every infinite animation must be intentional (status "Working"
+    breathing is OK, only while working). Anything else running forever
+    (spinners that were never stopped, shimmer on loaded content,
+    animated gradients) must be stopped/removed when not needed.
+    DONE WHEN: idleReport() lists 0 on a fully loaded idle page.
+4.7 DOM SIZE. Run  ForgeSmooth.domReport().  If total nodes > 3000 on the
+    main view, look at the top subtrees: the biggest is usually the file
+    tree or a hidden panel. Fix: render hidden panels lazily (create their
+    DOM on first open), render only visible tree rows (see Phase 5).
+4.8 LAYOUT THRASHING. Search JS for any function that reads layout
+    (offsetWidth, offsetHeight, clientWidth, scrollTop, scrollHeight,
+    getBoundingClientRect, getComputedStyle) AFTER writing styles in the
+    same function or loop. Rewrite as: all reads first, then all writes.
+    Also remove layout reads inside scroll, pointermove and resize handlers
+    unless throttled with requestAnimationFrame.
+4.9 RESIZE. window 'resize' handlers and ResizeObservers: coalesce into one
+    rAF:
+        let queued = false;
+        const onResize = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; doWork(); }); };
+    and skip the work while  ForgeFX.busy()  (use ForgeFX.afterIdle).
+4.10 SELECTOR COST. Remove universal transitions such as
+        * { transition: ... }   or   *, *::before, *::after { ... }
+     and any :has() / deep descendant selector that runs on thousands of
+     nodes (check 4.7's big subtrees).
+4.11 FONTS AND IMAGES. Add <link rel="preload" as="font" type="font/woff2"
+     crossorigin href="..."> for the main fonts (only if they are local
+     files). Set font-display: swap. Every <img>/<svg> gets width and
+     height attributes. No layout may shift after load (S9).
+4.12 Re-run  await ForgeBench.run().
+    DONE WHEN: p95 and p99 are equal or better than baseline in every step
+    and the number of BAD rows in 4.1 is 0. Freeze checks C-1, C-2: PASS.
+
+==============================================================
+PHASE 5 — SCROLLING AND BIG LISTS
+==============================================================
+5.1 Add class  fs-scroller  to every element with overflow: auto/scroll
+    (side panel body, file tree, palette list, verification output, tab
+    strip). (overscroll-behavior: contain + scrollbar-gutter: stable.)
+    Check: no layout jump when a scrollbar appears; scrolling a panel to
+    its end does not scroll the page behind it.
+5.2 FILE TREE
+    - count rows. If < 200: add nothing more.
+    - 200..1000 rows: put  class="fs-long"  on the element that directly
+      contains the rows and set the real row height in
+      forge-smooth.css (replace 28px). content-visibility applies paint
+      containment: if focus outlines or the hover pop of rows look
+      clipped, make the row focus ring inset (outline-offset: -2px).
+    - > 1000 rows: virtualise (render only rows in view + 20 above/below,
+      a spacer element for the rest). Keep keyboard navigation working.
+5.3 LISTS THAT GROW (verification output, logs): append in batches with
+    ForgeSmooth.chunk, cap the DOM at 1000 lines (remove from the top),
+    and keep the "stick to bottom" behaviour with
+        el.scrollTop = el.scrollHeight   done ONCE per batch, in a rAF.
+5.4 SCROLL HANDLERS: passive + rAF-throttled, no layout reads (see 4.8).
+5.5 PROGRAMMATIC SCROLL: use  el.scrollIntoView({ block: 'nearest' })  (not
+    'center') so the page does not jump; use behavior: 'smooth' only for
+    short distances (< 1 screen).
+5.6 OPTIONAL scroll shadow: on a panel whose header is sticky, add class
+    fs-scroll-shadow to the scrolling body. Measure with the bench; if any
+    step gets worse, remove it.
+5.7 Re-run  await ForgeBench.run(); scroll the biggest list top to bottom
+    with the HUD on (Ctrl+Alt+P): worst frame must stay < 25 ms (HUD stays
+    green/yellow, never red).
+    DONE WHEN: that scroll test passes. Freeze checks: PASS.
+
+==============================================================
+PHASE 6 — BACKEND AND DATA (FastAPI) — remove waits at the source
+==============================================================
+Why: from the earlier screenshot, workspace.py imports subprocess and
+points at a local Git executable. Spawning git for a request takes
+tens to hundreds of milliseconds on Windows. If a panel waits for such a
+request, no front-end trick can hide it. Fix the slowest requests first.
+Do NOT change any response shape (field names, types, order).
+
+6.1 TIMING (dev only). Add to the FastAPI app (main file), guarded by an
+    environment variable so it is OFF by default:
+
+        import os, time
+        if os.environ.get("FORGE_TIMING") == "1":
+            @app.middleware("http")
+            async def _forge_timing(request, call_next):
+                t = time.perf_counter()
+                resp = await call_next(request)
+                ms = (time.perf_counter() - t) * 1000
+                resp.headers["Server-Timing"] = "app;dur=%.1f" % ms
+                if request.url.path.startswith("/api") and ms > 60:
+                    print("[slow] %s %s %.0fms" % (request.method, request.url.path, ms))
+                return resp
+
+    Start the server with  FORGE_TIMING=1  (PowerShell:  $env:FORGE_TIMING="1")
+    WITHOUT --reload (the reload watcher uses CPU and distorts timings).
+    Use the app for 2 minutes. Write every [slow] line into
+    SMOOTH_BASELINE.md.
+6.2 BLOCKING IN ASYNC. Find every  async def  endpoint. If it calls
+    subprocess.run/check_output, open().read(), Path.read_text, os.walk,
+    shutil, requests, or any other blocking call, it FREEZES the whole
+    server for every other request. Fix (choose the smaller change):
+       (a) change  async def  to plain  def  (FastAPI runs it in a thread), or
+       (b) keep async and wrap the blocking part:
+              result = await asyncio.to_thread(blocking_function, args)
+    DONE WHEN: no async endpoint contains a blocking call.
+6.3 GIT CALLS. For every subprocess call to git:
+       - add timeout=10
+       - on Windows add  creationflags=subprocess.CREATE_NO_WINDOW
+         (guard with  if os.name == "nt":)
+       - CACHE results with a short lifetime. Template (adapt the names):
+
+            import time, threading
+            _cache, _lock = {}, threading.Lock()
+            def cached(key, ttl, fn):
+                now = time.monotonic()
+                with _lock:
+                    hit = _cache.get(key)
+                    if hit and now - hit[0] < ttl:
+                        return hit[1]
+                val = fn()
+                with _lock:
+                    _cache[key] = (time.monotonic(), val)
+                return val
+            def invalidate(prefix=""):
+                with _lock:
+                    for k in [k for k in _cache if k.startswith(prefix)]:
+                        _cache.pop(k, None)
+
+         git status / branch name / diff counts: ttl 2 seconds.
+         Call invalidate("git") from every endpoint that writes files or
+         runs a git command that changes state, so the UI never shows stale
+         data after the user's own action.
+       - COALESCE: if the same git command is already running for another
+         request, wait for that result instead of starting a second process.
+6.4 REPOSITORY SCANS. The file listing / analyzer must skip .git,
+    node_modules, __pycache__, .venv, venv, dist, build. Cache the listing
+    with key = (path, latest modification time of the tree root); recompute
+    only when it changes. Never rescan on every request.
+6.5 FILE CONTENT. Return files with an ETag built from (mtime, size) and
+    honour If-None-Match (reply 304). Cap very large files (for example
+    > 2 MB): send the first part with a flag the UI can use to load more.
+    (If the response shape cannot be extended, only add the ETag/304.)
+6.6 PAYLOADS. Remove fields no UI code reads, but ONLY after searching the
+    front-end code for every field name. When in doubt, do not remove.
+6.7 STARTUP. List what the page requests before it is usable. Requests
+    that are not needed for the first screen must start after it is shown
+    (use ForgeSmooth.whenCalm).
+6.8 Re-run the 2-minute usage test with FORGE_TIMING=1.
+    DONE WHEN: no /api request that a click WAITS for is slower than 150 ms
+    (cached: 50 ms). Write before/after in SMOOTH_REPORT.md.
+    Then turn the timing middleware OFF (unset FORGE_TIMING).
+    Freeze checks: PASS (these files should not even be touched).
+
+==============================================================
+PHASE 7 — THE CODE EDITOR (typing and scrolling)
+==============================================================
+Hard limits: do not change how the editor looks. Do not add animation.
+7.0 FIRST CHECK: the earlier bug where text like class="tok-string"> was
+    printed inside the code (highlighter leaking HTML). Open any Python
+    file. If it still shows, FIX IT FIRST: the highlighter is highlighting
+    its own generated HTML. Escape the source text once (&, <, >), then
+    apply token regexes in ONE pass over the escaped text using a single
+    combined regex with a replace callback — never run a second regex over
+    already generated <span> markup. Show me the diff.
+7.1 MEASURE the highlight function: find it. Wrap it in
+        const t0 = performance.now(); ...; console.log('highlight ms', performance.now() - t0);
+    run it on the 2,000-line file. Write the number.
+7.2 DECISION TABLE (apply what the number says):
+       < 8 ms    -> do nothing.
+       8-30 ms   -> debounce re-highlighting 80 ms after typing stops;
+                    on typing re-highlight ONLY the changed line(s).
+       > 30 ms   -> all of the above AND highlight only the visible lines
+                    plus 40 lines above/below; cache highlighted HTML per
+                    line in a Map keyed by the line text; highlight the rest
+                    with ForgeSmooth.chunk during idle (ForgeSmooth.whenCalm).
+7.3 RENDERING a file: if opening a file takes longer than 50 ms, render the
+    first screen of lines immediately, then the rest in chunks
+    (ForgeSmooth.chunk) so the click is never blocked.
+7.4 VIRTUALISATION: ONLY if the file has > 3,000 lines AND 7.2 was not
+    enough. Render the visible lines + 40 buffer, absolutely keep line
+    numbers aligned, keep find/save/selection/cursor working. If you cannot
+    do this safely, skip it and write "virtualisation skipped" in the report.
+7.5 SCROLLING: the editor viewport gets  contain: layout paint  (it is a
+    leaf, so H1 allows it) and  overflow-anchor: none.  No scroll listener
+    may read layout (4.8).
+7.6 TYPING PATH: no animation, no layout read, no storage write, and no fetch
+    inside the keydown/input handlers. Autosave/dirty-state flags go into
+    whenCalm or a 300 ms debounce.
+7.7 Re-run the typing test (2.3).
+    DONE WHEN: S7 passes (evP95 <= 50). Freeze checks: PASS. Visually
+    compare a file before/after: no color, spacing or font change.
+
+==============================================================
+PHASE 8 — MOTION COVERAGE: give every remaining surface the same feel
+==============================================================
+RULE: first AUDIT, then fill ONLY the gaps. If a surface already animates
+smoothly (it passes the bench), LEAVE IT. The panels' morph, the press
+feedback, the loading->home transition and the sidebar content switching
+are frozen and are NOT part of this phase.
+
+8.0 Create MOTION_COVERAGE.md: a table with one row per surface and these
+    columns: open, close, switch/content-change, press, hover, focus,
+    selected/active, loading, empty, error. Fill each cell with one of:
+      OK (smooth) / INSTANT (no motion) / JANKY (bench or eyes say so) / N/A.
+    Surfaces to include: rail icons + active highlight, side panel,
+    file-tree rows + folders + selected row, editor tabs (open/close/
+    switch/underline), breadcrumbs, step bar + underline, header buttons
+    (Open Ctrl P, view toggle, refresh, Find, Save), "Ready" status and
+    its label, footer counters, Verification panel rows, command palette
+    (results + highlight bar), tooltips, toasts, dropdowns/context menus,
+    modals, scrollbars, skeleton/loaders.
+    Fix only INSTANT and JANKY cells, with the recipes below.
+
+8.A FILE-TREE FOLDERS (if INSTANT/JANKY)
+    Structure each folder's children as:
+        <div class="fs-rows"><div class="fs-rows-inner"> ...child rows... </div></div>
+    On toggle:  ForgeSmooth.rows(wrap, willOpen);  and rotate the chevron
+    with a CSS  transition: rotate 220ms var(--fs-out)  on the chevron
+    (use the CSS property  rotate  — never  transform  — so it cannot
+    conflict with the press feedback).
+    If children are created on the FIRST open: create the wrap WITHOUT
+    fs-open, read  wrap.offsetHeight  once (forces the starting layout),
+    then call ForgeSmooth.rows(wrap, true) — otherwise no animation plays.
+    SIZE RULE: this animates layout, so it is allowed ONLY for folders with
+    <= 60 children. For bigger folders add class  fs-instant  before the
+    toggle and remove it two frames later:
+        wrap.classList.add('fs-instant'); ForgeSmooth.rows(wrap, open);
+        requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.remove('fs-instant')));
+    The folder subtree must be a leaf container with contain: layout paint (4.4).
+
+8.B FILE-TREE SELECTED ROW: use a plain background-color transition of 120 ms
+    on the row (SMALL-OK). Do NOT build a sliding indicator here; rows move
+    when folders open and the indicator would need re-syncing.
+
+8.C EDITOR TABS
+    - new tab:    ForgeSmooth.enter(tabEl, { y: 0, scale: 0.92, ms: 260 })
+    - closing tab (state changes FIRST, visuals follow):
+          ForgeSmooth.ghostOut(tabEl);                       // BEFORE removing
+          ForgeSmooth.flip(otherTabs, () => tabEl.remove()); // neighbours glide
+          // then activate the next tab immediately (app logic) and:
+          tabInd.move(activeTabEl);
+    - active-tab underline (one shared element):
+          const tabInd = ForgeSmooth.indicator({ container: tabStrip,
+              map: (r) => ({ x: r.x, y: r.y + r.h - 2, w: r.w, h: 2 }) });
+          tabInd.move(activeTab)  every time the active tab changes
+          tabInd.snap(activeTab)  once at startup
+      Style .fs-ind in the app CSS with the SAME accent color the old
+      underline used (copy the existing color; do not pick a new one).
+      Remove/disable the old per-tab underline.
+    - switching tabs: editor content changes instantly, no animation inside
+      the editor viewport; scroll position and cursor are kept per tab.
+
+8.D TOP STEP BAR (01 Understand ... 05 Verify): same indicator recipe as
+    tabs, container = the step bar, map = bottom 2px underline. Label color
+    transition 160 ms.
+
+8.E RAIL ACTIVE HIGHLIGHT: ONLY if it currently switches instantly: one
+    indicator element, map = identity (full item rect), CSS gives it the
+    existing highlighted-tile look. Must not clip the icons' bounce.
+
+8.F COMMAND PALETTE LIST: highlight bar =
+        const palInd = ForgeSmooth.indicator({ container: resultsEl });
+    arrow keys -> palInd.move(row); after results re-render -> palInd.snap(firstRow).
+    Results fade in 100 ms with no stagger. Typing is never delayed (3.9).
+
+8.G TOOLTIPS: show after 500 ms for mouse hover, 0 ms for keyboard focus.
+    Enter = ForgeSmooth.enter(tip, { y: 4, ms: 160 }). Moving to a
+    neighbouring tooltip target: no delay and no hide/show — move the one
+    tooltip element to the new anchor with  translate  (spring or 200 ms
+    ease-out). Hide with a 120 ms fade.
+
+8.H TOASTS: enter ForgeSmooth.enter(toast, { y: 16, ms: 280 }); when a new
+    toast arrives the older ones glide up with ForgeSmooth.flip(oldToasts,
+    () => container.prepend(newToast)); dismiss = ghostOut then remove;
+    hover pauses the timer.
+
+8.I NUMBERS AND LABELS: footer counters (58 files, 20 Python, 13 tests),
+    the Review badge number, the "Ready" label:
+        ForgeSmooth.roll(el, newValue)
+    "Ready" dot: color transition 200 ms (SMALL-OK). While "Working" the
+    dot breathes (opacity 1 -> .45 -> 1, 1.6 s, infinite) and the animation
+    is REMOVED as soon as work ends (4.6).
+
+8.J BREADCRUMBS: when the path changes, crossfade the container:
+        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease-out' })
+
+8.K SAVE BUTTON: on enabled/disabled change: color+opacity transition
+    200 ms, and when it becomes enabled call  ForgeFX.pulse(saveBtn, 'medium').
+
+8.L REFRESH ICON: spin in WHOLE turns so it always stops at rest:
+        function spin(btn, isBusy) {
+          const g = btn.querySelector('svg') || btn;
+          const turn = () => g.animate([{ rotate: '0deg' }, { rotate: '360deg' }], { duration: 650, easing: 'cubic-bezier(.65,0,.35,1)' }).finished.then(() => { if (isBusy()) turn(); }).catch(() => {});
+          turn();
+        }
+    (isBusy returns true while the refresh request is still running.)
+
+8.M DROPDOWNS AND CONTEXT MENUS that are NOT morph panels:
+    open: ForgeSmooth.enter(menu, { y: -6, scale: 0.97, ms: 180 });
+    close: a 120 ms fade (ForgeSmooth.ghostOut or opacity animation) —
+    the menu's state changes immediately; only the visual lags behind.
+
+8.N SKELETONS/LOADERS: show a skeleton only if loading takes > 150 ms
+    (start a 150 ms timer; cancel it if data arrives first). Shimmer is slow
+    (1.6 s) and low-contrast. Crossfade to the real content in 200 ms with
+    identical dimensions (no layout shift). Remove the shimmer animation
+    when done (4.6).
+
+8.O DRAG-RESIZE (only if a draggable divider exists): the divider follows the
+    pointer 1:1, rubber-band past limits:
+        rubber = (over, dim) => (1 - 1 / ((over * 0.55) / dim + 1)) * dim
+    On release, project the velocity: end = pos + (v / 1000) * (0.998 / (1 - 0.998))
+    and settle with a spring (ForgeFX.Spring1D, response 0.35, damping 0.8).
+    While dragging, nothing else re-lays out (use transform for the preview).
+
+8.P After each recipe: run the bench step that covers it, run the freeze
+    checks C-1/C-2, and tick the cell in MOTION_COVERAGE.md.
+    DONE WHEN: MOTION_COVERAGE.md has no INSTANT and no JANKY cells left
+    (except those with a written reason).
+
+==============================================================
+PHASE 9 — MICRO-POLISH (small things that make it feel expensive)
+==============================================================
+9.1 FOCUS RINGS: keyboard focus uses :focus-visible only. Keep the app's
+    existing focus color and width. Add a short fade-in:
+        :focus-visible { outline-offset: 2px; transition: outline-offset 140ms var(--fs-out); }
+    with the non-focused state at  outline-offset: 4px;  Never show focus
+    rings after a mouse click.
+9.2 HOVER ONLY WHERE HOVER EXISTS: wrap hover color rules in
+    @media (hover: hover) { ... }. :active styles apply instantly (no
+    transition delay on :active).
+9.3 NO ACCIDENTAL SELECTION: user-select: none on rail, header, tabs, step bar,
+    buttons (NOT on the editor, tree names, or text the user may copy).
+    -webkit-user-drag: none on icons and images.
+9.4 CURSORS: pointer on clickable items, default on labels, text in the editor.
+9.5 DISABLED THINGS: disabled buttons have no hover/press feedback (the FX
+    already skips [disabled] and aria-disabled="true"); transitions on
+    opacity/color 200 ms when state changes.
+9.6 POINTER EVENTS DURING MOTION: ghosts/clones/overlays used for motion
+    have pointer-events: none and aria-hidden="true" (ForgeSmooth already does).
+9.7 SUBPIXEL CRISPNESS: at rest nothing may keep a fractional translate or
+    scale. After any motion the inline transform/translate/scale/rotate
+    must be cleared (''), never left as "0px 0px" or "1 1". Check in
+    DevTools -> Elements after using every surface once.
+9.8 ZOOM/DPI: test at 125% and 150% browser zoom: icons stay crisp, the
+    morph still lands exactly on the panel (no 1px seam/border pop), and
+    the bench still passes.
+9.9 HIGH REFRESH: if the screen is 120/144 Hz the HUD should show ~120/144
+    fps while animating; everything uses time deltas (no fixed 16 ms
+    assumptions). Search the app JS for "16" / "16.6" used as a frame
+    time and replace with timestamp deltas.
+9.10 BACKGROUND TAB: when the tab is hidden and shown again, no animation
+    "catches up" or jumps (the engine clamps time steps; verify by hiding
+    the tab for 10 s during a morph, then returning).
+9.11 REDUCE MOTION: with prefers-reduced-motion on, every new motion from
+    Phase 8 degrades to an instant change or a 120 ms fade (the helpers
+    already do this; check your own CSS transitions with a media query).
+9.12 TEXT: do not animate font-size, letter-spacing or line-height anywhere.
+9.13 Run the bench again. DONE WHEN: no step regressed against Phase 8 and
+    freeze checks C-1/C-2 pass.
+
+==============================================================
+PHASE 10 — STRESS AND RESILIENCE
+==============================================================
+10.1 TOGGLE STORM: for every flow, open the panel, then run
+        await ForgeFlow.selfTest('<name>')   (must PASS)
+     and  await ForgeBench.leak('<that panel's icon selector>')  (100 cycles).
+     DONE WHEN: nodesDelta is 0 and heapDeltaKB < 3072 (R1; use 200 cycles
+     once for the Explore panel).
+10.2 6x THROTTLE: ask me to enable CPU 6x slowdown and run
+        await ForgeBench.run()
+     with budgets  T1: p95 33, p99 50  ->  ForgeSmooth.bench(ForgeBench.steps, { p95: 33, p99: 50, loaf: 6, evP95: 250 })
+     Every panel must still open and close COMPLETELY (T2). If a morph gets
+     cut by its time limit, that is the safety net working; do NOT raise
+     knobs.maxMs (frozen) — reduce the work around the animation instead
+     (Phases 3, 4, 7).
+10.3 LONG FILE: open the biggest file in the repo; open/close a panel while it
+     is open and while scrolling: HUD never red.
+10.4 SHORTCUT SPAM: press Ctrl+P / Esc / Ctrl+S 20 times quickly: no stuck
+     overlays, no console errors.
+10.5 RESIZE DURING MORPH: drag the window edge while a panel opens: no
+     leftover clip-path, no wrong position afterwards.
+10.6 RELOAD DURING USE: with a panel open, reload: the app starts clean.
+10.7 CONSOLE: open the console after a full session: zero errors, zero
+     warnings that come from our files.
+10.8 Write all results in SMOOTH_REPORT.md. DONE WHEN: R1, T1, T2 pass.
+
+==============================================================
+PHASE 11 — FINAL VERIFICATION
+==============================================================
+11.1 FREEZE CHECKS (all three):
+     C-1: run the SHA-256 command from 0.2. Both hashes must equal FROZEN_MORPH.md.
+     C-2: in the console:  ForgeSmooth.verifyMotion(<contents of MORPH_BASELINE.json>)  -> PASS
+     C-3: for each frozen snippet from 0.3 (a-e) compare with the original
+          backup. If git is used:  git diff -U0 -- <file>  and confirm NO
+          hunk touches those line ranges. Without git use:
+          python -c "import difflib,sys;a=open(sys.argv[1],encoding='utf8').read().splitlines();b=open(sys.argv[2],encoding='utf8').read().splitlines();print('\n'.join(difflib.unified_diff(a,b,'before','after',lineterm='',n=0)))" _backup_smooth/<file> <file>
+          and confirm no changed line belongs to a frozen snippet.
+     If ANY check fails: revert the offending change. Do not continue.
+11.2 FINAL BENCH: hard-reload, run  await ForgeBench.run()  three times; use the
+     middle one. Also run idleReport, domReport and the typing test.
+11.3 SCORECARD: in SMOOTH_REPORT.md fill this table with baseline vs final and
+     PASS/FAIL for each line of Section 2 (S1-S10, T1-T2, R1-R2).
+11.4 If ANY scorecard line fails: go to its phase, fix, re-measure. Do not
+     declare done with a failing line. If a line cannot be met on this machine,
+     explain exactly why (hardware, file size) with the measured numbers.
+11.5 FINAL REPORT (SMOOTH_REPORT.md) must contain:
+       1. Scorecard table (baseline / final / PASS-FAIL)
+       2. Every change: file, what, why, before -> after number
+       3. Every change you REVERTED and why
+       4. Frozen-list proof: the three checks and their output
+       5. MOTION_COVERAGE.md final state
+       6. Open questions and anything still imperfect
+     Print the report.
+
+==============================================================
+TROUBLESHOOTING TABLE
+==============================================================
+SYMPTOM                                       -> CAUSE / FIX
+Nothing changed after an edit                  -> Cache. Hard reload; bump ?v=N.
+ForgeSmooth is undefined                       -> Script not loaded after forge-fx.js, or lag-fix patch 2 missing (Phase 0.4).
+verifyMotion prints FAIL                       -> Something edited a knob or ForgeFX.LEVELS. Revert the last change; compare dumpMotion() with MORPH_BASELINE.json.
+Panel morph lands in the wrong place           -> Hazard H1: an ancestor got contain/transform/filter. Remove it from the ancestor.
+Blob appears behind something                  -> Hazard H2: a new element uses z-index 40-42 (or something got a higher z-index than the blob). Use >= 50 for overlays that belong above, and < 40 for things that belong below.
+Tab underline jumps instead of sliding         -> indicator.snap() was called instead of .move(), or rects were measured before the DOM change finished (call move() AFTER the DOM mutation).
+Indicator is off by the scroll amount          -> The container is not the scrolling element. Pass the element that actually scrolls as container.
+Folder rows do not animate                     -> Children were added with fs-open already set (see 8.A: read offsetHeight first), or the folder has > 60 children (instant by design).
+Hover pop clipped on tree rows                 -> content-visibility paint containment (5.2). Inset the focus ring or remove .fs-long from small lists.
+Bench shows LoAF with a function name          -> That function is your next target; defer it (Phase 3.4) or chunk it.
+Bench "style/layout/paint" LoAF with no script -> A big layout/paint cost: see Phase 4.1-4.4 (BAD properties, containment, DOM size).
+HUD is red only while scrolling a list         -> The list is too big: Phase 5.2.
+Slow API in the timing log                     -> Phase 6.2-6.4.
+Typing is laggy only in big files              -> Phase 7.2.
+Fast clicking shows old content                -> Missing ForgeSmooth.latest (3.7).
+Idle CPU is not zero                           -> idleReport(): a loop or infinite animation is running; stop it (4.6).
+
+==============================================================
+FORBIDDEN LIST (never do these)
+==============================================================
+ - Never edit forge-flow.js or forge-fx.js. Never change a morph/press number.
+ - Never change the order of operations in open/close functions (Section 1).
+ - Never add an ancestor with contain/transform/filter/perspective above a
+   flow panel, the editor shell, the rail or the header (H1).
+ - Never use z-index 40, 41 or 42 (H2).
+ - Never add waits (setTimeout, transitionend, animationend, .finished) to any
+   click/open/close path. Visual-only fades of clones/ghosts are fine.
+ - Never animate width, height, top, left, margin, padding, font-size,
+   box-shadow, filter or backdrop-filter on anything big.
+ - Never add animation to the code editor viewport or the typing path.
+ - Never use backdrop-filter, blur or liquid-glass effects.
+ - Never change colors, fonts, layout, text or icons.
+ - Never install packages. Never change API response shapes.
+ - Never keep a change whose after-number is not better than its before-number.
+ - Never move to the next phase while a DONE WHEN check or a freeze check fails.
+ - Never declare "done" without the filled scorecard and the printed report.
+
+START NOW WITH PHASE 0. After Phase 2 print SMOOTH_BASELINE.md.
+After Phase 11 print SMOOTH_REPORT.md.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-15T20:55:19+05:30.
+</ADDITIONAL_METADATA>
