@@ -61,6 +61,7 @@ export class SlidingIndicator {
 
   moveTo(element, immediate = false) {
     if (!element || !this.container) return;
+    if (this.currentElement === element && this.indicatorEl && this.indicatorEl.style.opacity === "1" && !immediate) return;
     if (!this.indicatorEl || !this.indicatorEl.isConnected) {
       this.initDOM();
     }

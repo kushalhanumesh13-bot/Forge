@@ -1,4 +1,4 @@
-/* forge-flow.js — an icon flows like a river into a panel, and back. Needs forge-fx.js first. */
+/* forge-flow.js v2 — an icon flows like a river into a panel, and back. Needs forge-fx.js first. */
 (function () {
   'use strict';
   if (window.ForgeFlow) return;
@@ -20,7 +20,7 @@
     if ((m = /^rgba?\(([^)]+)\)/i.exec(s))) { const p = m[1].split(/[ ,\/]+/).filter(Boolean).map(parseFloat); return [p[0], p[1], p[2]]; }
     return [212, 85, 47];
   }
-  function solidBg(el) { // first non-transparent background going up the tree
+  function solidBg(el) {
     while (el && el !== document.documentElement) {
       const m = /rgba?\(([^)]+)\)/.exec(getComputedStyle(el).backgroundColor);
       if (m) { const p = m[1].split(/[ ,\/]+/).filter(Boolean).map(parseFloat); if (p.length < 4 || p[3] > 0.05) return [p[0], p[1], p[2]]; }
@@ -29,7 +29,7 @@
     return [255, 255, 255];
   }
 
-  /* ---- outlines: every rounded rectangle is sampled with the SAME point layout, so shapes can morph without twisting ---- */
+  /* ---- outlines ---- */
   function outline(r, edgeN, cornerN) {
     const x = r.x, y = r.y, w = r.w, h = r.h, rad = Math.max(0, Math.min(r.r, w / 2, h / 2)), P = [];
     const edge = (x0, y0, x1, y1) => { for (let i = 0; i < edgeN; i++) { const t = i / edgeN; P.push(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t); } };
@@ -40,7 +40,7 @@
     edge(x, y + h - rad, x, y + rad);         arc(x + rad, y + rad, 180);
     return new Float32Array(P);
   }
-  function pathFrom(P, N, ox, oy) { // smooth closed curve through the points (Catmull-Rom -> Bezier)
+  function pathFrom(P, N, ox, oy) {
     const g = (i, c) => P[((i + N) % N) * 2 + c];
     let d = 'M' + f1(g(0, 0) - ox) + ' ' + f1(g(0, 1) - oy);
     for (let i = 0; i < N; i++) {
@@ -58,7 +58,7 @@
     const d3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx), d4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx);
     return ((d1 > 1e-6 && d2 < -1e-6) || (d1 < -1e-6 && d2 > 1e-6)) && ((d3 > 1e-6 && d4 < -1e-6) || (d3 < -1e-6 && d4 > 1e-6));
   }
-  function isSimple(P, N) { // true if the outline does not cross itself
+  function isSimple(P, N) {
     for (let i = 0; i < N; i++) {
       const b = (i + 1) % N;
       for (let j = i + 2; j < N; j++) {
@@ -74,22 +74,43 @@
     constructor(o) {
       this.name = o.name || 'panel'; this.trigger = o.trigger || null; this.panel = o.panel;
       this.knobs = Object.assign({
-        lag: 0.32,        // 0..0.5  how much the back of the shape trails behind the front
-        curve: 0.10,      // 0..0.25 how much the path bends
-        stretch: 0.14,    // 0..0.25 stretch along travel direction while moving fast
-        neck: 0.50,       // 0..0.6  how strongly the tail clings to the icon (the "drop" neck)
-        wobble: 0.035,    // 0..0.06 liquid wobble
+        lag: 0.32, curve: 0.10, stretch: 0.14, neck: 0.50, wobble: 0.035,
         edgeN: 12, cornerN: 8,
         accent: null, shadow: true, iconOnTop: true, landingBounce: true,
-        open: [0.52, 0.80],   // [response seconds, damping fraction]
+        maxMs: 900,          // hard limit: a flow ALWAYS ends within this many ms of the last click
+        open: [0.52, 0.80],  // [response seconds, damping fraction]
         close: [0.38, 0.92]
       }, o.knobs || {});
       this.onSettle = o.onSettle || null;   // (state) => {}   state is 'open' or 'closed'
       this.onProgress = o.onProgress || null;
-      this.p = new FX.Spring1D(0, 0.0006);
-      this.live = false; this.running = false; this.waiters = [];
+      this.p = new FX.Spring1D(0, 0.002);
+      this.live = false; this.running = false; this.counted = false; this.waiters = [];
+      this.kids = []; this.lastCa = -1; this.t0 = 0; this.wd = 0;
+      this.lastRect = null;
+      this.lastTriggerRect = null;
+      if (this.panel && this.panel.offsetWidth > 0 && this.panel.offsetHeight > 0) {
+        this.lastRect = this.panel.getBoundingClientRect();
+      }
+      if (this.trigger && this.trigger.offsetWidth > 0) {
+        this.lastTriggerRect = this.trigger.getBoundingClientRect();
+      }
+      window.addEventListener('resize', () => { this.lastRect = null; this.lastTriggerRect = null; }, { passive: true });
     }
-    setTrigger(el) { if (!this.live) this.trigger = el; }
+    setTrigger(el) {
+      if (!this.live) {
+        this.trigger = el;
+        if (el && el.offsetWidth > 0) this.lastTriggerRect = el.getBoundingClientRect();
+      }
+    }
+    armWatchdog() { // even if animation frames stop, the flow is forced to finish
+      clearTimeout(this.wd);
+      this.wd = setTimeout(() => {
+        if (!this.live) return;
+        this.p.value = this.p.target; this.p.velocity = 0;
+        try { this.draw(this.p.value, 0); } catch (e) {}
+        this.settle();
+      }, this.knobs.maxMs + 400);
+    }
     ensureSvg() {
       if (this.svg) return;
       const id = 'ff-sh-' + (++uid);
@@ -100,27 +121,45 @@
       document.body.appendChild(svg);
       this.svg = svg; this.pathEl = svg.querySelector('path'); this.shEl = svg.querySelector('feDropShadow');
     }
-    begin() {
+    ensureStatic() {
+      if (!this.surface) this.surface = this.knobs.surface ? parseColor(this.knobs.surface) : solidBg(this.panel);
+      if (!this.accent) {
+        const cv = this.trigger ? getComputedStyle(this.trigger).getPropertyValue('--flow-accent') : '';
+        this.accent = parseColor(this.knobs.accent || cv || '#d4552f');
+      }
+      if (this.tr == null && this.trigger) this.tr = parseFloat(getComputedStyle(this.trigger).borderTopLeftRadius) || 0;
+      if (this.pr == null) this.pr = parseFloat(getComputedStyle(this.panel).borderTopLeftRadius) || 0;
+    }
+    begin(tgRect) {
       const k = this.knobs, pn = this.panel, tg = this.trigger;
       this.ensureSvg();
-      this.surface = solidBg(pn); // read BEFORE adding .ff-active (which makes the panel transparent)
-      const cv = getComputedStyle(tg).getPropertyValue('--flow-accent');
-      this.accent = parseColor(k.accent || cv || '#d4552f');
+      this.ensureStatic();
       this.saved = { tg: tg, pPos: pn.style.position, pZ: pn.style.zIndex, tPos: tg.style.position, tZ: tg.style.zIndex };
-      if (getComputedStyle(pn).position === 'static') pn.style.position = 'relative';
+      if (!pn.style.position || pn.style.position === 'static') pn.style.position = 'relative';
       pn.style.zIndex = '41';
-      if (k.iconOnTop) { if (getComputedStyle(tg).position === 'static') tg.style.position = 'relative'; tg.style.zIndex = '42'; }
+      if (k.iconOnTop) { if (!tg.style.position || tg.style.position === 'static') tg.style.position = 'relative'; tg.style.zIndex = '42'; }
+      this.kids = Array.from(pn.children).filter((c) => !c.hasAttribute('data-ff-keep'));
+      this.lastCa = -1;
       pn.classList.add('ff-active');
-      this.measure();
+      this.measure(tgRect);
       this.svg.style.display = 'block';
       this.live = true;
+      if (!this.counted) { this.counted = true; FX.busyDelta(1); }
     }
-    measure() { // read positions ONCE per open/close (never inside the animation frame)
-      const k = this.knobs, t = this.trigger.getBoundingClientRect(), r = this.panel.getBoundingClientRect();
-      const tr = parseFloat(getComputedStyle(this.trigger).borderTopLeftRadius) || 0;
-      const pr = Math.max(parseFloat(getComputedStyle(this.panel).borderTopLeftRadius) || 0, 4);
+    measure(tgRect) { // read positions ONCE per open/close (never inside the animation frame)
+      const k = this.knobs;
+      const t = tgRect || (this.trigger ? (this.lastTriggerRect || (this.lastTriggerRect = this.trigger.getBoundingClientRect())) : { left: 0, top: 0, width: 44, height: 49 });
+      let r;
+      if (this.lastRect && this.lastRect.width > 0) {
+        r = this.lastRect;
+      } else {
+        r = this.panel.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) this.lastRect = r;
+      }
+      const tr = this.tr ?? 0;
+      const pr = this.pr ?? 0;
       this.S = outline({ x: t.left, y: t.top, w: t.width, h: t.height, r: Math.max(tr, Math.min(t.width, t.height) * 0.5) }, k.edgeN, k.cornerN);
-      this.E = outline({ x: r.left, y: r.top, w: r.width, h: r.height, r: pr }, k.edgeN, k.cornerN);
+      this.E = outline({ x: r.left, y: r.top, w: r.width, h: r.height, r: Math.max(pr, 4) }, k.edgeN, k.cornerN);
       const N = (this.N = this.S.length / 2);
       this.out = new Float32Array(this.S.length);
       this.box = r;
@@ -129,20 +168,20 @@
       let dx = this.ec.x - this.sc.x, dy = this.ec.y - this.sc.y, D = Math.hypot(dx, dy);
       if (D < 1) { dx = 0; dy = -1; D = 1; }
       this.D = D; this.dir = { x: dx / D, y: dy / D };
-      let nx = -this.dir.y, ny = this.dir.x; // bend the path toward the middle of the screen
+      let nx = -this.dir.y, ny = this.dir.x;
       const mx = (this.sc.x + this.ec.x) / 2, my = (this.sc.y + this.ec.y) / 2;
       if ((innerWidth / 2 - mx) * nx + (innerHeight / 2 - my) * ny < 0) { nx = -nx; ny = -ny; }
       this.n = { x: nx, y: ny };
       this.w = new Float32Array(N); this.tw = new Float32Array(N); this.theta = new Float32Array(N);
       for (let i = 0; i < N; i++) {
         const ax = this.S[2 * i] - this.sc.x, ay = this.S[2 * i + 1] - this.sc.y, len = Math.hypot(ax, ay) || 1;
-        this.w[i] = 0.5 + 0.5 * ((ax / len) * this.dir.x + (ay / len) * this.dir.y); // 1 = front of shape, 0 = back
-        this.tw[i] = clamp((0.5 - this.w[i]) / 0.5, 0, 1);                            // back points hold the neck
+        this.w[i] = 0.5 + 0.5 * ((ax / len) * this.dir.x + (ay / len) * this.dir.y);
+        this.tw[i] = clamp((0.5 - this.w[i]) / 0.5, 0, 1);
         this.theta[i] = (i / N) * Math.PI * 2;
       }
       this.size0 = Math.min(t.width, t.height); this.size1 = Math.min(r.width, r.height);
     }
-    draw(p, v) { // p = progress 0..1 (can go slightly above 1), v = its speed
+    draw(p, v) {
       const k = this.knobs, N = this.N, S = this.S, E = this.E, O = this.out, dir = this.dir, n = this.n, D = this.D;
       const pc = clamp(p, 0, 1), over = Math.max(0, p - 1);
       const st = k.stretch * clamp(Math.abs(v) / 4, 0, 1);
@@ -174,15 +213,20 @@
       }
       const b = this.box;
       this.pathEl.setAttribute('d', pathFrom(O, N, 0, 0));
-      this.panel.style.clipPath = SUP_PATH ? 'path("' + pathFrom(O, N, b.left, b.top) + '")' : polyFrom(O, N, b.left, b.top);
+      this.panel.style.clipPath = (SUP_PATH && !window.__TEST_USE_POLY) ? 'path("' + pathFrom(O, N, b.left, b.top) + '")' : polyFrom(O, N, b.left, b.top);
       const cm = smooth(0.35, 0.8, pc), A = this.accent, B = this.surface;
       this.pathEl.setAttribute('fill', 'rgb(' + Math.round(A[0] + (B[0] - A[0]) * cm) + ',' + Math.round(A[1] + (B[1] - A[1]) * cm) + ',' + Math.round(A[2] + (B[2] - A[2]) * cm) + ')');
       this.pathEl.setAttribute('opacity', smooth(0, 0.1, pc).toFixed(3));
       if (this.shEl) this.shEl.setAttribute('flood-opacity', (0.22 * Math.pow(bump, 0.7)).toFixed(3));
-      this.panel.style.setProperty('--ff-content', smooth(0.5, 0.85, pc).toFixed(3));
+      // content fade: set directly on the few direct children (cheap), and only when the value changes
+      const ca = +smooth(0.5, 0.85, pc).toFixed(3);
+      if (ca !== this.lastCa) {
+        this.lastCa = ca;
+        for (let i = 0; i < this.kids.length; i++) { const s = this.kids[i].style; s.opacity = ca; s.translate = '0 ' + ((1 - ca) * 6).toFixed(2) + 'px'; }
+      }
       if (this.onProgress) this.onProgress(p, v);
     }
-    to(target, trigger) { // to(1) = open, to(0) = close. Safe to call at any moment.
+    to(target, trigger, tgRect) { // to(1) = open, to(0) = close. Safe to call at any moment.
       target = target ? 1 : 0;
       if (trigger && !this.live) this.trigger = trigger;
       if (!this.live && this.p.value === target) return Promise.resolve();
@@ -191,7 +235,9 @@
       this.p.target = target;
       const t = this.knobs[target ? 'open' : 'close'];
       this.p.tune(t[0], t[1]);
-      if (!wasLive) this.begin(); else if (changed) this.measure();
+      if (!wasLive) this.begin(tgRect); else if (changed) this.measure(tgRect);
+      this.t0 = performance.now();
+      this.armWatchdog();
       this.go();
       return new Promise((res) => this.waiters.push(res));
     }
@@ -201,25 +247,40 @@
       this.draw(this.p.value, this.p.velocity); // first frame is drawn right now, before the browser paints
       FX.run((dt) => {
         if (!this.live) { this.running = false; return false; }
-        const moving = this.p.step(dt);
-        this.draw(this.p.value, this.p.velocity);
-        if (moving) return true;
+        try {
+          let moving;
+          if (performance.now() - this.t0 > this.knobs.maxMs) { this.p.value = this.p.target; this.p.velocity = 0; moving = false; }
+          else moving = this.p.step(dt);
+          this.draw(this.p.value, this.p.velocity);
+          if (moving) return true;
+        } catch (err) {
+          console.error('[ForgeFlow] ' + this.name + ' crashed, forcing the end state:', err);
+          this.p.value = this.p.target; this.p.velocity = 0;
+        }
         this.settle(); return false;
       });
     }
     cleanup() {
+      clearTimeout(this.wd);
       const pn = this.panel, s = this.saved || {};
-      pn.style.clipPath = ''; pn.style.removeProperty('--ff-content'); pn.classList.remove('ff-active');
+      pn.style.clipPath = ''; pn.classList.remove('ff-active');
+      for (let i = 0; i < this.kids.length; i++) { const st = this.kids[i].style; st.opacity = ''; st.translate = ''; }
       pn.style.position = s.pPos || ''; pn.style.zIndex = s.pZ || '';
       if (this.knobs.iconOnTop && s.tg) { s.tg.style.position = s.tPos || ''; s.tg.style.zIndex = s.tZ || ''; }
       if (this.svg) this.svg.style.display = 'none';
       this.live = false; this.running = false;
+      if (this.counted) { this.counted = false; FX.busyDelta(-1); } // queued heavy work runs now
     }
     settle() {
       const open = this.p.target === 1, trig = this.trigger;
       this.cleanup();
+      /* old code, disconnected by lag fix:
+      if (open && this.panel && this.panel.offsetWidth > 0) {
+        this.lastRect = this.panel.getBoundingClientRect();
+      }
+      */
       if (this.onSettle) this.onSettle(open ? 'open' : 'closed');
-      if (!open && this.knobs.landingBounce && trig) FX.pulse(trig, 'strong'); // the icon lands with a bounce
+      if (!open && this.knobs.landingBounce && trig) FX.pulse(trig, 'strong');
       const w = this.waiters; this.waiters = []; w.forEach((r) => r());
     }
     jump(target) { // Reduce Motion: no flow, just a short fade
@@ -229,6 +290,24 @@
       if (this.onSettle) this.onSettle(target ? 'open' : 'closed');
       return Promise.resolve();
     }
+  }
+
+  /* ---- helpers for panels that are part of the layout ---- */
+  function pullOut(panel) { // take the panel out of the layout but keep it visible at the same spot
+    if (!panel || panel.__ffPulled) return;
+    const r = panel.getBoundingClientRect(), s = panel.style;
+    panel.__ffPulled = { position: s.position, left: s.left, top: s.top, width: s.width, height: s.height, margin: s.margin, boxSizing: s.boxSizing };
+    s.position = 'fixed'; s.left = r.left + 'px'; s.top = r.top + 'px'; s.width = r.width + 'px'; s.height = r.height + 'px'; s.margin = '0'; s.boxSizing = 'border-box';
+  }
+  function restore(panel) { // put the panel's own inline styles back (call it AFTER hiding the panel)
+    const o = panel && panel.__ffPulled; if (!o) return;
+    const s = panel.style;
+    s.position = o.position; s.left = o.left; s.top = o.top; s.width = o.width; s.height = o.height; s.margin = o.margin; s.boxSizing = o.boxSizing;
+    panel.__ffPulled = null;
+  }
+  function soften(el, ms) { // brief fade that hides the one-frame jump when the layout changes
+    if (!el || !el.animate || FX.reduced()) return;
+    el.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: ms || 240, easing: 'ease-out' });
   }
 
   async function selfTest(name) {
@@ -245,14 +324,14 @@
     else console.log('PASS shape stays a clean outline at 54 sample points');
     for (let i = 0; i < 20; i++) { fl.to(i % 2 ? 1 : 0); await wait(18); }
     fl.to(1); await wait(1600);
-    const clean = fl.panel.style.clipPath === '' && !fl.panel.classList.contains('ff-active') && !fl.live && fl.p.value === 1;
-    console.log((clean ? 'PASS' : 'FAIL') + ' toggle storm ends clean and open');
+    const clean = fl.panel.style.clipPath === '' && !fl.panel.classList.contains('ff-active') && !fl.live && fl.p.value === 1 && FX.busyCount === 0;
+    console.log((clean ? 'PASS' : 'FAIL') + ' toggle storm ends clean, open, and not busy');
     return ok && clean;
   }
 
   window.ForgeFlow = {
     attach(o) { const fl = new Flow(o); registry[fl.name] = fl; return fl; },
-    all: registry, selfTest,
+    all: registry, selfTest, pullOut, restore, soften,
     scrub(name, p) { const fl = registry[name]; if (!fl) return; if (p == null) { fl.cleanup(); return; } if (!fl.live) fl.begin(); fl.draw(p, 0); }
   };
 })();

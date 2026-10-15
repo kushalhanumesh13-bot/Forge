@@ -34,10 +34,14 @@
   /* ---- one shared animation loop for everything ---- */
   let jobs = [], raf = 0, last = 0;
   function frame(now) {
-    const dt = Math.min((now - last) / 1000, 1 / 30) * FX.timeScale;
+    const dt = Math.min((now - last) / 1000, 1 / 15) * FX.timeScale;
     last = now;
     const current = jobs; jobs = [];
-    for (let i = 0; i < current.length; i++) if (current[i](dt)) jobs.push(current[i]);
+    for (let i = 0; i < current.length; i++) {
+      let keep = false;
+      try { keep = current[i](dt); } catch (err) { console.error('[ForgeFX] an animation job crashed and was stopped:', err); }
+      if (keep) jobs.push(current[i]);
+    }
     raf = jobs.length ? requestAnimationFrame(frame) : 0;
   }
   function run(job) { jobs.push(job); if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } }
@@ -243,7 +247,7 @@
     let min = 9, max = 0;
     const sampler = setInterval(() => { const v = parseFloat(b.style.scale || '1'); if (v < min) min = v; if (v > max) max = v; }, 8);
     b.dispatchEvent(ev('pointerdown')); await wait(150);
-    b.dispatchEvent(ev('pointerup')); await wait(1400);
+    b.dispatchEvent(ev('pointerup')); await wait(1600);
     clearInterval(sampler);
     const clean1 = b.style.scale === '' && b.style.translate === '' && b.style.rotate === '';
     for (let i = 0; i < 30; i++) { b.dispatchEvent(ev('pointerdown')); await wait(15); b.dispatchEvent(ev('pointerup')); await wait(15); }
@@ -256,6 +260,16 @@
     console.log('min scale', min.toFixed(3), 'max scale', max.toFixed(3));
     return rows.every((r) => r[1]);
   };
+
+    /* "busy" = a panel flow is running. Heavy work should wait until it is over. */
+    FX.busyCount = 0;
+    const idleQueue = [];
+    FX.busy = () => FX.busyCount > 0;
+    FX.afterIdle = (fn) => { if (FX.busyCount === 0) fn(); else idleQueue.push(fn); };
+    FX.busyDelta = (d) => {
+      FX.busyCount = Math.max(0, FX.busyCount + d);
+      if (FX.busyCount === 0) idleQueue.splice(0).forEach((fn) => { try { fn(); } catch (e) { console.error(e); } });
+    };
 
   FX.Spring1D = Spring1D; FX.springParams = springParams; FX.run = run; FX.clamp = clamp; FX.reduced = reduced; FX.LEVELS = LEVELS;
   window.ForgeFX = FX;

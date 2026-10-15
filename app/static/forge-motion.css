@@ -11,11 +11,6 @@
   background: transparent !important;
   box-shadow: none !important;
   border-color: transparent !important;
-}
-.ff-active > *:not([data-ff-keep]) {
-  opacity: var(--ff-content, 0);
-  translate: 0 calc((1 - var(--ff-content, 0)) * 6px);
-}
-@media (prefers-reduced-motion: reduce) {
-  .ff-active > *:not([data-ff-keep]) { translate: none; }
+  /* old code, disconnected by lag fix: will-change: clip-path; */
+  contain: layout paint;
 }

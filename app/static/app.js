@@ -149,6 +149,7 @@ function resetBootProgress() {
 }
 
 function setBootProgress(progress) {
+  if (!state.booting) return;
   const nextProgress = Math.max(0, Math.min(100, progress));
   if (nextProgress < bootMotion.confirmed) return;
   bootMotion.confirmed = nextProgress;
@@ -156,6 +157,7 @@ function setBootProgress(progress) {
 }
 
 function beginBootStage(index) {
+  if (!state.booting) return;
   currentBootStage = Math.min(index, bootStages.length - 1);
   const stage = bootStages[currentBootStage];
   setBoot(stage.label, stage.detail);
@@ -169,6 +171,7 @@ function completeBootStage() {
 }
 
 function completeBootTransition() {
+  if (bootMotion.frame) { window.cancelAnimationFrame(bootMotion.frame); bootMotion.frame = 0; }
   const screen = $("boot-screen");
   const app = $("forge-app");
   if (state.transitioning) return;
@@ -808,17 +811,33 @@ function setSidebarOpen(open, triggerEl) {
   const workbench = $("workbench");
 
   if (open) {
+    const trigger = triggerEl || document.querySelector(`.rail-button[data-view="${state.activeView}"]`) || document.querySelector('.rail-button[data-view="explorer"]');
+    const tgRect = trigger ? trigger.getBoundingClientRect() : null;
+
     sidebar.classList.toggle("is-open", true);
     sidebar.classList.toggle("is-collapsed", false);
     if (workbench) workbench.classList.remove("explorer-is-collapsed");
     $("sidebar-scrim").hidden = !compact;
     $("explorer-open").hidden = true;
 
-    const trigger = triggerEl || document.querySelector(`.rail-button[data-view="${state.activeView}"]`) || document.querySelector('.rail-button[data-view="explorer"]');
-    sideFlow?.to(1, trigger);
+    sideFlow?.to(1, trigger, tgRect);
   } else {
-    // a. do NOT hide the panel here anymore. (Hiding now happens in onSettle('closed'))
-    // b. call sideFlow.to(0)
+    // 1) FIRST LINE: take panel out of layout, still visible
+    if (window.ForgeFlow && window.ForgeFlow.pullOut) {
+      window.ForgeFlow.pullOut(sidebar);
+    }
+
+    // 2) app logic, synchronous: collapse layout space (do not hide panel here)
+    if (workbench) workbench.classList.add("explorer-is-collapsed");
+    $("sidebar-scrim").hidden = true;
+    $("explorer-open").hidden = false;
+
+    // 3) soften main editor element
+    if (window.ForgeFlow && window.ForgeFlow.soften) {
+      window.ForgeFlow.soften($("main-content"), 240);
+    }
+
+    // 4) animation
     sideFlow?.to(0);
   }
 }
@@ -1071,7 +1090,7 @@ function switchSideView(oldView, newView, labels) {
   scheduler.register(currentViewSpring);
 }
 
-function setView(view, { focus = false } = {}) {
+function setView(view, { focus = false, triggerEl = null } = {}) {
   const labels = {
     explorer: ["01 / ORIENTATION", "Repository", "Repository explorer"],
     search: ["02 / INVESTIGATION", "Search", "Repository search"],
@@ -1089,8 +1108,12 @@ function setView(view, { focus = false } = {}) {
   });
 
   const activeBtn = document.querySelector(`.rail-button[data-view="${view}"]`);
-  if (activeBtn && railIndicator) {
-    railIndicator.moveTo(activeBtn);
+  if (activeBtn && railIndicator && oldView !== view) {
+    if (window.ForgeFX) {
+      ForgeFX.afterIdle(() => railIndicator.moveTo(activeBtn));
+    } else {
+      railIndicator.moveTo(activeBtn);
+    }
   }
 
   const isSidebarOpen = isSidebarVisible();
@@ -1110,9 +1133,15 @@ function setView(view, { focus = false } = {}) {
     }
   }
 
-  if (view === "changes") loadChanges();
+  if (view === "changes") {
+    if (window.ForgeFX && window.ForgeFX.busy()) {
+      window.ForgeFX.afterIdle(() => void loadChanges());
+    } else {
+      void loadChanges();
+    }
+  }
   if (!isSidebarVisible()) {
-    setSidebarOpen(true);
+    setSidebarOpen(true, triggerEl);
   }
   if (view === "tasks") setContextOpen(true);
   if (focus && view === "search") $("search-input").focus();
@@ -1512,12 +1541,10 @@ function bindEvents() {
       return;
     }
     const alreadyOpen = isSidebarVisible();
-    setView(view);
     if (alreadyOpen) {
       sideFlow?.setTrigger(button);
-    } else {
-      setSidebarOpen(true, button);
     }
+    setView(view, { triggerEl: button });
   }));
   $$(".journey-step").forEach((button) => button.addEventListener("click", () => activateJourney(button.dataset.journey)));
   $$(".dock-tab").forEach((tab) => tab.addEventListener("click", () => setDock(tab.dataset.dock)));
@@ -1646,16 +1673,19 @@ function initialize() {
     name: 'side',
     panel: $("sidebar"),
     trigger: document.querySelector('.rail-button[data-view="explorer"]') || document.querySelector('.rail-button'),
-    knobs: { neck: 0.35, lag: 0.25, stretch: 0.08 },
+    knobs: { open: [0.38, 0.88], close: [0.28, 0.92], neck: 0.10, lag: 0.10, stretch: 0.02, wobble: 0.01, shadow: false, edgeN: 8, cornerN: 6 },
     onSettle: function (state) {
+      const sidebar = $("sidebar");
       if (state === 'closed') {
-        const sidebar = $("sidebar");
-        const workbench = $("workbench");
         sidebar.classList.remove("is-open");
         sidebar.classList.add("is-collapsed");
-        if (workbench) workbench.classList.add("explorer-is-collapsed");
-        $("sidebar-scrim").hidden = true;
-        $("explorer-open").hidden = false;
+        if (window.ForgeFlow && window.ForgeFlow.restore) {
+          window.ForgeFlow.restore(sidebar);
+        }
+      } else {
+        if (window.ForgeFlow && window.ForgeFlow.restore) {
+          window.ForgeFlow.restore(sidebar);
+        }
       }
     }
   });
@@ -1664,6 +1694,9 @@ function initialize() {
     sideFlow.p.target = 1;
   }
   window.__sideFlow = sideFlow;
+  window.setSidebarOpen = setSidebarOpen;
+  window.setView = setView;
+  window.isSidebarVisible = isSidebarVisible;
 
   /* old animation, disconnected by motion upgrade:
   settingsMorph = MorphPanel.attach({
@@ -1680,7 +1713,7 @@ function initialize() {
     name: 'settings',
     panel: $("settings-panel"),
     trigger: document.querySelector('.rail-button[data-view="settings"]'),
-    knobs: { open: [0.34, 0.86], close: [0.26, 0.92], neck: 0.10, lag: 0.12, stretch: 0.03, wobble: 0.02 },
+    knobs: { open: [0.34, 0.86], close: [0.26, 0.92], neck: 0.10, lag: 0.10, stretch: 0.02, wobble: 0.01 },
     onSettle: function (state) {
       if (state === 'closed') {
         const p = $("settings-panel");
@@ -1689,7 +1722,10 @@ function initialize() {
           p.classList.remove("is-open");
         }
         const btn = document.querySelector('.rail-button[data-view="settings"]');
-        if (btn) btn.classList.remove("is-popup-open");
+        if (btn) {
+          btn.classList.remove("is-popup-open");
+          btn.focus();
+        }
       }
     }
   });
@@ -1710,7 +1746,7 @@ function initialize() {
     name: 'keys',
     panel: $("keys-panel"),
     trigger: $("help"),
-    knobs: { open: [0.34, 0.86], close: [0.26, 0.92], neck: 0.10, lag: 0.12, stretch: 0.03, wobble: 0.02 },
+    knobs: { open: [0.34, 0.86], close: [0.26, 0.92], neck: 0.10, lag: 0.10, stretch: 0.02, wobble: 0.01 },
     onSettle: function (state) {
       if (state === 'closed') {
         const p = $("keys-panel");
@@ -1719,7 +1755,10 @@ function initialize() {
           p.classList.remove("is-open");
         }
         const btn = $("help");
-        if (btn) btn.classList.remove("is-popup-open");
+        if (btn) {
+          btn.classList.remove("is-popup-open");
+          btn.focus();
+        }
       }
     }
   });
@@ -1729,7 +1768,7 @@ function initialize() {
     name: 'dock',
     panel: $("bottom-dock"),
     trigger: document.querySelector(".dock-bar") || $("dock-toggle"),
-    knobs: { open: [0.38, 0.88], close: [0.28, 0.92], neck: 0.18, lag: 0.18, stretch: 0.05, wobble: 0.02 },
+    knobs: { open: [0.38, 0.88], close: [0.28, 0.92], neck: 0.10, lag: 0.10, stretch: 0.02, wobble: 0.01 },
     onSettle: function (state) {
       if (state === 'closed') {
         const dock = $("bottom-dock");
@@ -1809,7 +1848,7 @@ function initialize() {
       name: 'palette',
       panel: paletteDialog,
       trigger: $("quick-open") || $("command-open") || document.body,
-      knobs: { open: [0.34, 0.86], close: [0.26, 0.92], neck: 0.10, lag: 0.12, stretch: 0.03, wobble: 0.02 },
+      knobs: { open: [0.34, 0.86], close: [0.26, 0.92], neck: 0.10, lag: 0.10, stretch: 0.02, wobble: 0.01 },
       onSettle: function (state) {
         if (state === 'closed') {
           const backdrop = $("modal-backdrop");
