@@ -1,0 +1,63 @@
+:root { --fs-out: cubic-bezier(.22,1,.36,1); --fs-in: cubic-bezier(.4,0,1,1); }
+
+
+
+/* Folder rows (file tree). The ONLY allowed layout animation: small subtrees only (see Phase 8.A). */
+
+.fs-rows { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 280ms var(--fs-out); }
+
+.fs-rows.fs-open { grid-template-rows: 1fr; }
+
+.fs-rows > .fs-rows-inner { overflow: hidden; min-height: 0; opacity: 0; transition: opacity 180ms ease-out 40ms; }
+
+.fs-rows.fs-open > .fs-rows-inner { opacity: 1; }
+
+.fs-rows.fs-instant, .fs-rows.fs-instant > .fs-rows-inner { transition: none; }
+
+
+
+/* Shared sliding indicator: set background/radius in the app's own CSS using the app's own colors */
+
+.fs-ind { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform; }
+
+
+
+/* Long lists: skip rendering rows that are off screen (set the real row height) */
+
+.fs-long > * { content-visibility: auto; contain-intrinsic-size: auto 28px; }
+
+
+
+/* Scroll containers: no scroll chaining, no layout jump when the scrollbar appears */
+
+.fs-scroller { overscroll-behavior: contain; scrollbar-gutter: stable; }
+
+
+
+/* Optional soft shadow under a sticky header while its list is scrolled (compositor-only) */
+
+@supports (animation-timeline: scroll()) {
+
+  .fs-scroll-shadow::before {
+
+    content: ''; position: sticky; top: 0; display: block; height: 10px; margin-bottom: -10px; z-index: 2; pointer-events: none;
+
+    background: linear-gradient(var(--scroll-shadow), transparent); opacity: 0;
+
+    animation: fs-shadow linear both; animation-timeline: scroll(nearest); animation-range: 0 24px;
+
+  }
+
+  @keyframes fs-shadow { to { opacity: 1; } }
+
+}
+
+
+
+@media (prefers-reduced-motion: reduce) {
+
+  .fs-rows, .fs-rows > .fs-rows-inner { transition: none; }
+
+  .fs-scroll-shadow::before { animation: none; opacity: 0; }
+
+}

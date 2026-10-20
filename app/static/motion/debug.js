@@ -65,7 +65,7 @@ export function drawDebugPoints(points, arcPoints = null) {
   ctx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
 
   if (arcPoints && arcPoints.length >= 2) {
-    ctx.strokeStyle = "rgba(189, 73, 45, 0.7)";
+    ctx.strokeStyle = "var(--focus-ring)";
     ctx.lineWidth = 2;
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
@@ -79,7 +79,7 @@ export function drawDebugPoints(points, arcPoints = null) {
 
   if (points) {
     const numPoints = points.length / 2;
-    ctx.fillStyle = "#bd492d";
+    ctx.fillStyle = "var(--accent)";
     for (let i = 0; i < numPoints; i++) {
       const px = points[i * 2];
       const py = points[i * 2 + 1];
@@ -122,10 +122,10 @@ export function toggleTuningPanel() {
     width: 320px;
     max-height: 85vh;
     overflow-y: auto;
-    background: #20211e;
-    color: #f4f0e7;
-    border: 1px solid #46463e;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    background: var(--bg-editor);
+    color: var(--text-on-rail);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-lg);
     z-index: 10000;
     font: 12px/1.4 "Cascadia Code", Consolas, monospace;
     padding: 16px;
@@ -133,14 +133,14 @@ export function toggleTuningPanel() {
   `;
 
   panel.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid #46463e;padding-bottom:8px;">
-      <strong style="color:#bd492d;font-size:13px;">MOTION TUNER</strong>
-      <button id="tune-close" style="color:#aaa;background:none;border:none;cursor:pointer;font-size:16px;">&times;</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--border-strong);padding-bottom:8px;">
+      <strong style="color:var(--accent);font-size:13px;">MOTION TUNER</strong>
+      <button id="tune-close" style="color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:16px;">&times;</button>
     </div>
 
     <div style="margin-bottom:12px;">
-      <label style="display:block;margin-bottom:4px;color:#aaa;">Preset:</label>
-      <select id="tune-preset" style="width:100%;background:#171814;color:#fff;border:1px solid #46463e;padding:4px;">
+      <label style="display:block;margin-bottom:4px;color:var(--text-muted);">Preset:</label>
+      <select id="tune-preset" style="width:100%;background:var(--bg-gutter);color:var(--text-on-rail);border:1px solid var(--border-input);padding:4px;">
         <option value="elegant">Elegant</option>
         <option value="classic">Classic</option>
         <option value="dynamic">Dynamic</option>
@@ -150,9 +150,9 @@ export function toggleTuningPanel() {
 
     <div id="tune-sliders" style="display:flex;flex-direction:column;gap:10px;"></div>
 
-    <div style="display:flex;gap:8px;margin-top:16px;border-top:1px solid #46463e;padding-top:12px;">
-      <button id="tune-copy" style="flex:1;background:#bd492d;color:#fff;border:none;padding:6px;cursor:pointer;">Copy JSON</button>
-      <button id="tune-reset" style="flex:1;background:#35362f;color:#fff;border:none;padding:6px;cursor:pointer;">Reset</button>
+    <div style="display:flex;gap:8px;margin-top:16px;border-top:1px solid var(--border-strong);padding-top:12px;">
+      <button id="tune-copy" style="flex:1;background:var(--accent);color:var(--text-on-accent);border:none;padding:6px;cursor:pointer;">Copy JSON</button>
+      <button id="tune-reset" style="flex:1;background:var(--bg-hover);color:var(--text);border:none;padding:6px;cursor:pointer;">Reset</button>
     </div>
   `;
 
@@ -199,9 +199,9 @@ export function toggleTuningPanel() {
     row.innerHTML = `
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
         <span>${item.label}</span>
-        <span id="val-${item.key}" style="color:#bd492d;">${val}</span>
+        <span id="val-${item.key}" style="color:var(--accent);">${val}</span>
       </div>
-      <input type="range" id="input-${item.key}" min="${item.min}" max="${item.max}" step="${item.step}" value="${val}" style="width:100%;accent-color:#bd492d;">
+      <input type="range" id="input-${item.key}" min="${item.min}" max="${item.max}" step="${item.step}" value="${val}" style="width:100%;accent-color:var(--accent);">
     `;
     slidersContainer.appendChild(row);
 
@@ -229,10 +229,10 @@ export function toggleScrubberPanel() {
     bottom: 40px;
     left: 70px;
     width: 380px;
-    background: #20211e;
-    color: #f4f0e7;
-    border: 1px solid #46463e;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    background: var(--bg-editor);
+    color: var(--text-on-rail);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-lg);
     z-index: 10000;
     font: 12px/1.4 "Cascadia Code", Consolas, monospace;
     padding: 14px;
@@ -241,23 +241,23 @@ export function toggleScrubberPanel() {
 
   panel.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <strong style="color:#bd492d;">FRAME SCRUBBER</strong>
-      <button id="scrub-close" style="color:#aaa;background:none;border:none;cursor:pointer;font-size:16px;">&times;</button>
+      <strong style="color:var(--accent);">FRAME SCRUBBER</strong>
+      <button id="scrub-close" style="color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:16px;">&times;</button>
     </div>
     <div style="margin-bottom:8px;">
-      <label style="color:#aaa;display:block;margin-bottom:4px;">Surface:</label>
-      <select id="scrub-surface" style="width:100%;background:#171814;color:#fff;border:1px solid #46463e;padding:4px;"></select>
+      <label style="color:var(--text-muted);display:block;margin-bottom:4px;">Surface:</label>
+      <select id="scrub-surface" style="width:100%;background:var(--bg-gutter);color:var(--text-on-rail);border:1px solid var(--border-input);padding:4px;"></select>
     </div>
     <div>
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
         <span>Progress p</span>
-        <span id="scrub-val" style="color:#bd492d;">0.000</span>
+        <span id="scrub-val" style="color:var(--accent);">0.000</span>
       </div>
-      <input type="range" id="scrub-slider" min="0" max="1.05" step="0.005" value="0" style="width:100%;accent-color:#bd492d;">
+      <input type="range" id="scrub-slider" min="0" max="1.05" step="0.005" value="0" style="width:100%;accent-color:var(--accent);">
     </div>
     <div style="display:flex;gap:4px;margin-top:10px;flex-wrap:wrap;">
       ${[0, 0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 1.0, 1.03].map(p => `
-        <button class="scrub-btn" data-p="${p}" style="background:#35362f;color:#fff;border:none;padding:3px 6px;cursor:pointer;font-size:10px;">${p}</button>
+        <button class="scrub-btn" data-p="${p}" style="background:var(--bg-hover);color:var(--text);border:none;padding:3px 6px;cursor:pointer;font-size:10px;">${p}</button>
       `).join("")}
     </div>
   `;
@@ -625,8 +625,8 @@ export function scrubJourney(fromStep = "understand", toStep = "investigate", p 
 export function report() {
   const current = getActivePresetName();
   const config = getActiveConfig();
-  console.group("%c[Forge Motion Report]", "color:#bd492d;font-weight:bold;font-size:13px;");
-  console.log(`Active System Preset: %c${current}%c`, "color:#2d6959;font-weight:bold;", "");
+  console.group("%c[Forge Motion Report]", "color:var(--accent);font-weight:bold;font-size:13px;");
+  console.log(`Active System Preset: %c${current}%c`, "color:var(--success);font-weight:bold;", "");
   console.log("Configuration & Knobs:", config);
   console.log("\nSpring Presets & Damping Ratio (zeta):");
   const tableData = {};

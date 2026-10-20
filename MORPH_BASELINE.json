@@ -1,0 +1,149 @@
+{
+ "levels": {
+  "strong": {
+   "down": 0.86,
+   "squash": 0.035,
+   "tilt": 3.5,
+   "rot": 5,
+   "pop": 1.13,
+   "popY": 1.07,
+   "hover": 1.05,
+   "magnet": 2.5,
+   "glyph": 1.25
+  },
+  "medium": {
+   "down": 0.92,
+   "squash": 0.02,
+   "tilt": 2,
+   "rot": 2.5,
+   "pop": 1.07,
+   "popY": 1.04,
+   "hover": 1.025,
+   "magnet": 1.2,
+   "glyph": 1.12
+  },
+  "soft": {
+   "down": 0.975,
+   "squash": 0.005,
+   "tilt": 0,
+   "rot": 0,
+   "pop": 1.02,
+   "popY": 1.012,
+   "hover": 1,
+   "magnet": 0,
+   "glyph": 1
+  }
+ },
+ "flows": {
+  "side": {
+   "lag": 0.1,
+   "curve": 0.1,
+   "stretch": 0.02,
+   "neck": 0.1,
+   "wobble": 0.01,
+   "edgeN": 8,
+   "cornerN": 6,
+   "accent": null,
+   "shadow": false,
+   "iconOnTop": true,
+   "landingBounce": true,
+   "maxMs": 900,
+   "open": [
+    0.38,
+    0.88
+   ],
+   "close": [
+    0.28,
+    0.92
+   ]
+  },
+  "settings": {
+   "lag": 0.1,
+   "curve": 0.1,
+   "stretch": 0.02,
+   "neck": 0.1,
+   "wobble": 0.01,
+   "edgeN": 12,
+   "cornerN": 8,
+   "accent": null,
+   "shadow": true,
+   "iconOnTop": true,
+   "landingBounce": true,
+   "maxMs": 900,
+   "open": [
+    0.34,
+    0.86
+   ],
+   "close": [
+    0.26,
+    0.92
+   ]
+  },
+  "keys": {
+   "lag": 0.1,
+   "curve": 0.1,
+   "stretch": 0.02,
+   "neck": 0.1,
+   "wobble": 0.01,
+   "edgeN": 12,
+   "cornerN": 8,
+   "accent": null,
+   "shadow": true,
+   "iconOnTop": true,
+   "landingBounce": true,
+   "maxMs": 900,
+   "open": [
+    0.34,
+    0.86
+   ],
+   "close": [
+    0.26,
+    0.92
+   ]
+  },
+  "dock": {
+   "lag": 0.1,
+   "curve": 0.1,
+   "stretch": 0.02,
+   "neck": 0.1,
+   "wobble": 0.01,
+   "edgeN": 12,
+   "cornerN": 8,
+   "accent": null,
+   "shadow": true,
+   "iconOnTop": true,
+   "landingBounce": true,
+   "maxMs": 900,
+   "open": [
+    0.38,
+    0.88
+   ],
+   "close": [
+    0.28,
+    0.92
+   ]
+  },
+  "palette": {
+   "lag": 0.1,
+   "curve": 0.1,
+   "stretch": 0.02,
+   "neck": 0.1,
+   "wobble": 0.01,
+   "edgeN": 12,
+   "cornerN": 8,
+   "accent": null,
+   "shadow": true,
+   "iconOnTop": true,
+   "landingBounce": true,
+   "maxMs": 900,
+   "open": [
+    0.34,
+    0.86
+   ],
+   "close": [
+    0.26,
+    0.92
+   ]
+  }
+ }
+}

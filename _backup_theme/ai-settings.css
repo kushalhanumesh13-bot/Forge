@@ -1,0 +1,185 @@
+.ai-settings {
+  display: grid;
+  gap: 12px;
+  padding: 16px 15px 24px;
+}
+
+.ai-settings-intro {
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ai-settings-intro h2 {
+  margin: 7px 0 6px;
+  color: var(--ink);
+  font: 500 25px/1 var(--serif);
+  letter-spacing: -.035em;
+}
+
+.ai-settings-intro p,
+.ai-help,
+.ai-feedback {
+  margin: 0;
+  color: var(--slate);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ai-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 8px;
+  color: var(--slate);
+  background: var(--paper-bright);
+  border: 1px solid var(--line);
+  font: 10px var(--mono);
+}
+
+.ai-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  background: var(--quiet);
+}
+
+.ai-status.is-success .ai-status-dot { background: var(--pine); }
+.ai-status.is-error .ai-status-dot { background: var(--danger); }
+.ai-status.is-busy .ai-status-dot { background: var(--gold); animation: boot-pulse 1.2s ease-in-out infinite; }
+
+.ai-field {
+  display: grid;
+  gap: 5px;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ai-field small {
+  float: right;
+  color: var(--slate);
+  font: 9px var(--mono);
+  font-weight: 400;
+}
+
+.ai-field input,
+.ai-field select {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 8px;
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  outline: 0;
+  font-size: 12px;
+}
+
+.ai-field input:focus,
+.ai-field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+.ai-field input:disabled { color: var(--text-disabled); background: var(--bg-sunken); }
+.ai-help { padding: 8px; background: var(--bg-sunken); }
+.ai-actions { display: grid; gap: 6px; padding-top: 3px; }
+.ai-actions button { min-height: 34px; padding: 0 9px; font-size: 11px; font-weight: 700; text-align: left; }
+.ai-primary { color: var(--text-on-rail); background: var(--bg-rail); }
+.ai-primary:hover:not(:disabled) { background: var(--rail-item-active-bg); }
+.ai-secondary { color: var(--text); border: 1px solid var(--border-strong); }
+.ai-secondary:hover:not(:disabled) { background: var(--bg-sunken); }
+.ai-danger { color: var(--error); border: 1px solid var(--error); }
+.ai-danger:hover:not(:disabled) { color: var(--text-on-accent); background: var(--error); }
+.ai-actions button:disabled { opacity: .45; }
+.ai-feedback:empty { display: none; }
+.ai-feedback.is-error { color: var(--error); }
+.ai-feedback.is-success { color: var(--success); }
+
+@media (max-width: 720px) {
+  .ai-settings { padding: 14px; }
+  .ai-settings-intro h2 { font-size: 22px; }
+}
+
+/* Theme setting (Appearance) */
+.theme-setting {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.setting-label {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.theme-seg {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.theme-seg [role="radio"] {
+  flex: 1;
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  transition: background var(--fast) ease, color var(--fast) ease;
+}
+
+.theme-seg [role="radio"]:hover:not([aria-checked="true"]) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.theme-seg [role="radio"]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.theme-seg [role="radio"][aria-checked="true"] {
+  color: var(--text-on-accent);
+  background: var(--accent);
+}
+
+.setting-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* The Gen4 layout rules are loaded after the original responsive shell rules. */
+@media (max-width: 1110px) {
+  .sidebar {
+    position: fixed;
+    z-index: 20;
+    top: 64px;
+    bottom: 0;
+    left: 56px;
+    width: min(340px, calc(100vw - 56px));
+    transform: translateX(-110%);
+  }
+
+  .sidebar.is-open { transform: translateX(0); }
+}
+
+@media (max-width: 720px) {
+  .sidebar {
+    top: 56px;
+    left: 48px;
+    width: min(340px, calc(100vw - 48px));
+  }
+}

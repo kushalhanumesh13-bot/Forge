@@ -25,7 +25,7 @@
 }
 
 .modal-backdrop.motion-active {
-  background: rgb(28 28 25 / calc(.58 * var(--motion-progress)));
+  background: var(--bg-overlay);
 }
 
 .forge-app.motion-receding {

@@ -283,7 +283,7 @@
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
-  background: rgb(0 0 0 / 0.55);
+  background: var(--scrim);
   backdrop-filter: blur(4px);
   display: grid;
   place-items: start center;
@@ -729,21 +729,21 @@
   flex-shrink: 0;
 }
 
-/* Extension-based colors */
-.file-icon-py { color: #3776ab; }
-.file-icon-js { color: #f7df1e; }
-.file-icon-ts { color: #3178c6; }
-.file-icon-json { color: #e8b84d; }
-.file-icon-md { color: #00d4aa; }
-.file-icon-html { color: #e34f26; }
-.file-icon-css { color: #1572b6; }
-.file-icon-yaml, .file-icon-yml { color: #cb171e; }
-.file-icon-toml { color: #9c4221; }
-.file-icon-rs { color: #dea584; }
-.file-icon-go { color: #00add8; }
-.file-icon-sh { color: #4eaa25; }
-.file-icon-dockerfile { color: #2496ed; }
-.file-icon-txt { color: var(--text-dim); }
+/* Extension-based colors - using theme tokens */
+.file-icon-py { color: var(--syn-function); }
+.file-icon-js { color: var(--warn); }
+.file-icon-ts { color: var(--syn-function); }
+.file-icon-json { color: var(--warn); }
+.file-icon-md { color: var(--success); }
+.file-icon-html { color: var(--error); }
+.file-icon-css { color: var(--syn-function); }
+.file-icon-yaml, .file-icon-yml { color: var(--error); }
+.file-icon-toml { color: var(--accent); }
+.file-icon-rs { color: var(--accent-hover); }
+.file-icon-go { color: var(--syn-function); }
+.file-icon-sh { color: var(--success); }
+.file-icon-dockerfile { color: var(--syn-function); }
+.file-icon-txt { color: var(--text-muted); }
 
 /* Folder icons */
 .folder-icon {
@@ -837,23 +837,13 @@
 
 /* Glassmorphism approximation for overlays */
 .glass {
-  background: linear-gradient(135deg,
-    rgb(255 255 255 / 0.05) 0%,
-    rgb(255 255 255 / 0.02) 100%
-  );
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--bg-hover);
   border: 1px solid var(--border-subtle);
 }
 
 .glass-strong {
-  background: linear-gradient(135deg,
-    rgb(255 255 255 / 0.08) 0%,
-    rgb(255 255 255 / 0.03) 100%
-  );
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--border-soft);
+  background: var(--bg-active);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-md);
 }
 

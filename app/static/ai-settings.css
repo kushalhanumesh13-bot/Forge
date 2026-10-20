@@ -78,28 +78,87 @@
 
 .ai-field input:focus,
 .ai-field select:focus {
-  border-color: var(--ember);
-  box-shadow: 0 0 0 2px var(--ember-wash);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
 }
 
-.ai-field input:disabled { color: var(--slate); background: var(--paper-quiet); }
-.ai-help { padding: 8px; background: var(--paper-quiet); }
+.ai-field input:disabled { color: var(--text-disabled); background: var(--bg-sunken); }
+.ai-help { padding: 8px; background: var(--bg-sunken); }
 .ai-actions { display: grid; gap: 6px; padding-top: 3px; }
 .ai-actions button { min-height: 34px; padding: 0 9px; font-size: 11px; font-weight: 700; text-align: left; }
-.ai-primary { color: #fff8ef; background: var(--ink); }
-.ai-primary:hover:not(:disabled) { background: var(--ember-deep); }
-.ai-secondary { color: var(--ink); border: 1px solid var(--line-dark); }
-.ai-secondary:hover:not(:disabled) { background: var(--paper-quiet); }
-.ai-danger { color: var(--danger); border: 1px solid var(--danger); }
-.ai-danger:hover:not(:disabled) { color: #fff8ef; background: var(--danger); }
+.ai-primary { color: var(--text-on-rail); background: var(--bg-rail); }
+.ai-primary:hover:not(:disabled) { background: var(--rail-item-active-bg); }
+.ai-secondary { color: var(--text); border: 1px solid var(--border-strong); }
+.ai-secondary:hover:not(:disabled) { background: var(--bg-sunken); }
+.ai-danger { color: var(--error); border: 1px solid var(--error); }
+.ai-danger:hover:not(:disabled) { color: var(--text-on-accent); background: var(--error); }
 .ai-actions button:disabled { opacity: .45; }
 .ai-feedback:empty { display: none; }
-.ai-feedback.is-error { color: var(--danger); }
-.ai-feedback.is-success { color: var(--pine); }
+.ai-feedback.is-error { color: var(--error); }
+.ai-feedback.is-success { color: var(--success); }
 
 @media (max-width: 720px) {
   .ai-settings { padding: 14px; }
   .ai-settings-intro h2 { font-size: 22px; }
+}
+
+/* Theme setting (Appearance) */
+.theme-setting {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.setting-label {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.theme-seg {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.theme-seg [role="radio"] {
+  flex: 1;
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  transition: background var(--fast) ease, color var(--fast) ease;
+}
+
+.theme-seg [role="radio"]:hover:not([aria-checked="true"]) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.theme-seg [role="radio"]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.theme-seg [role="radio"][aria-checked="true"] {
+  color: var(--text-on-accent);
+  background: var(--accent);
+}
+
+.setting-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 /* The Gen4 layout rules are loaded after the original responsive shell rules. */

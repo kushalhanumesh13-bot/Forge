@@ -143,7 +143,7 @@ html, body {
   transition: height var(--duration-panel) var(--ease-standard),
               transform var(--duration-panel) var(--ease-standard);
   overflow: hidden;
-  box-shadow: 0 -4px 24px rgb(0 0 0 / 0.3);
+  box-shadow: var(--shadow-lg);
 }
 
 .bottom-dock.collapsed {
@@ -246,7 +246,7 @@ html, body {
     position: fixed;
     inset: 0;
     z-index: calc(var(--z-sidebar) - 1);
-    background: rgb(0 0 0 / 0.4);
+    background: var(--scrim);
     backdrop-filter: blur(2px);
     opacity: 0;
     visibility: hidden;

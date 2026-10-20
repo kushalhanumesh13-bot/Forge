@@ -3,13 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#20211e">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#FFF1A6">
   <title>Forge — local engineering workspace</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 20V4h12M5 12h9M10 4v8' fill='none' stroke='%23f4f0e7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/static/style.css?v=8">
-  <link rel="stylesheet" href="/static/ai-settings.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 20V4h12M5 12h8' fill='none' stroke='%23f4f0e7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <script>
+  (function () {
+    var p = 'system';
+    try { var s = localStorage.getItem('forge-theme'); if (s === 'light' || s === 'dark' || s === 'system') p = s; } catch (e) {}
+    var sysDark = false;
+    try { sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) {}
+    var dark = p === 'dark' || (p === 'system' && sysDark);
+    var r = document.documentElement;
+    r.setAttribute('data-theme', dark ? 'dark' : 'light');
+    r.setAttribute('data-theme-pref', p);
+    r.style.colorScheme = dark ? 'dark' : 'light';
+    r.style.backgroundColor = dark ? '#1A0B2E' : '#FFF1A6';
+  })();
+  </script>
+  <script src="/static/forge-theme.js?v=3"></script>
+  <link rel="stylesheet" href="/static/style.css?v=9">
+  <link rel="stylesheet" href="/static/ai-settings.css?v=2">
   <link rel="stylesheet" href="/static/motion/motion.css?v=20261015-1">
   <link rel="stylesheet" href="/static/forge-motion.css?v=6">
+  <link rel="stylesheet" href="/static/theme.css?v=2">
+  <link rel="stylesheet" href="/static/forge-smooth.css?v=2">
 </head>
 <body>
   <div class="boot-screen" id="boot-screen" role="status" aria-live="polite" aria-label="Preparing Forge workspace">
@@ -101,6 +119,15 @@
       <button class="icon-button quiet" id="settings-close" type="button" aria-label="Close settings" title="Close settings"><svg aria-hidden="true"><use href="#i-close"></use></svg></button>
     </div>
     <form class="ai-settings" id="ai-settings-form">
+      <div class="theme-setting">
+        <div id="theme-label" class="setting-label">Appearance</div>
+        <div class="theme-seg" role="radiogroup" aria-labelledby="theme-label">
+          <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme-option="light">Light</button>
+          <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme-option="dark">Dark</button>
+          <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme-option="system">System</button>
+        </div>
+        <p id="theme-hint" class="setting-hint" aria-live="polite"></p>
+      </div>
       <div class="ai-settings-intro"><span class="empty-index">WORKSPACE KEY</span><p>Choose where Forge should look when AI features are enabled. Keys stay in the local Forge workspace.</p></div>
       <div class="ai-status" id="ai-status" role="status" aria-live="polite"><span class="ai-status-dot" aria-hidden="true"></span><span id="ai-status-text">Not configured</span></div>
       <label class="ai-field" for="ai-provider"><span>Provider</span><select id="ai-provider" name="provider"></select></label>
@@ -135,7 +162,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <svg class="svg-sprite" aria-hidden="true" focusable="false">
-    <symbol id="i-forge" viewBox="0 0 24 24"><path d="M5 20V4h12M5 12h9M10 4v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-forge" viewBox="0 0 24 24"><path d="M5 20V4h12M5 12h8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.4 4.4" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
     <symbol id="i-command" viewBox="0 0 24 24"><path d="M8 9a3 3 0 1 1-3-3v12a3 3 0 1 1 3-3h8a3 3 0 1 1 3 3V6a3 3 0 1 1-3 3H8Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.6-3.7L3 10m1-5v5h5m-5 3a8 8 0 0 0 14.6 3.7L21 14m-1 5v-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -155,6 +182,17 @@
   <script src="/static/forge-fx-config.js?v=3"></script>
   <script src="/static/forge-flow.js?v=13"></script>
   <script src="/static/forge-trace.js?v=2"></script>
-  <script type="module" src="/static/app.js?v=20261015-21"></script>
+  <script src="/static/forge-smooth.js?v=1"></script>
+  <script src="/static/forge-bench.js?v=1"></script>
+  <script>
+  (function() {
+    if (location.search.includes('themeaudit')) {
+      var s = document.createElement('script');
+      s.src = '/static/forge-theme-audit.js?v=2';
+      document.head.appendChild(s);
+    }
+  })();
+  </script>
+  <script type="module" src="/static/app.js?v=20261015-23"></script>
 </body>
 </html>

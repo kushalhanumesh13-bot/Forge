@@ -31,12 +31,12 @@
   --toolbar-h: 48px;
 
   /* Surfaces & accents */
-  --surface-rail: var(--ink, #20211e);
-  --surface-sidebar: var(--paper-panel, #ebe4d8);
-  --surface-header: var(--paper-bright, #fbf8f1);
-  --surface-code: var(--ink-code, #171814);
-  --surface-dock: var(--ink, #20211e);
-  --accent: var(--ember, #bd492d);
+  --surface-rail: var(--bg-rail);
+  --surface-sidebar: var(--bg-panel);
+  --surface-header: var(--bg-header);
+  --surface-code: var(--bg-editor);
+  --surface-dock: var(--bg-rail);
+  --accent: var(--accent);
   --radius-panel: 0px;
   --radius-icon: 0px;
 }
@@ -82,8 +82,8 @@
 .motion-indicator {
   position: absolute;
   pointer-events: none;
-  background: rgba(189, 73, 45, 0.12);
-  border-left: 2px solid var(--ember, #bd492d);
+  background: var(--accent-subtle);
+  border-left: 2px solid var(--accent);
   box-sizing: border-box;
 }
 
@@ -103,9 +103,9 @@
   position: absolute;
   left: 7px;
   width: 44px;
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  background: var(--bg-hover) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-sm);
   pointer-events: none;
   z-index: 0 !important;
   border-radius: 6px !important;
@@ -118,15 +118,15 @@
   left: 0;
   width: 3px;
   content: "";
-  background: var(--ember);
+  background: var(--accent);
   border-radius: 3px 0 0 3px;
 }
 .activity-rail.has-sliding-indicator .rail-button.is-active {
   background: transparent !important;
-  color: #fff9f0 !important;
+  color: var(--text-on-rail) !important;
 }
 .activity-rail.has-sliding-indicator .rail-button.is-active svg {
-  color: #fff9f0 !important;
+  color: var(--text-on-rail) !important;
 }
 .activity-rail.has-sliding-indicator .rail-button.is-active::before {
   display: none !important;
@@ -140,11 +140,11 @@
   user-select: none;
 }
 .rail-button.is-popup-open {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  color: #fff9f0 !important;
+  background: var(--bg-hover) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-on-rail) !important;
   border-radius: 6px !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-sm);
 }
 /* old animation, disconnected by motion upgrade:
 .rail-button.is-pressed {
@@ -183,10 +183,10 @@
   position: fixed;
   left: 58px;
   z-index: 45;
-  background: var(--paper-panel, #ebe4d8);
-  border: 1px solid #3b3b35;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.2);
-  color: var(--ink, #20211e);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
   contain: layout paint;
   border-radius: 4px;
   overflow: hidden;
@@ -202,16 +202,16 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--line, #ded6c9);
+  border-bottom: 1px solid var(--border);
 }
 .floating-panel .panel-heading h2 {
   font: 500 18px/1.1 var(--serif);
-  color: var(--ink);
+  color: var(--text);
   margin: 4px 0 0;
 }
 .floating-panel .panel-heading .eyebrow {
   font: 9px var(--mono);
-  color: var(--slate);
+  color: var(--text-muted);
   letter-spacing: .06em;
   margin: 0;
 }
@@ -229,15 +229,15 @@
   align-items: center;
   justify-content: space-between;
   font-size: 11px;
-  color: var(--ink);
+  color: var(--text);
 }
 .key-row kbd {
   font: 10px var(--mono);
   padding: 2px 5px;
-  background: var(--paper-bright);
-  border: 1px solid var(--line);
-  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
-  color: var(--ink);
+  background: var(--bg-header);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
 }
 #settings-panel {
   bottom: 74px;
@@ -261,8 +261,8 @@
   right: 0;
   pointer-events: none;
   z-index: 0;
-  background: #e3cfc3;
-  border-left: 2px solid var(--ember);
+  background: var(--bg-selected);
+  border-left: 2px solid var(--accent);
   box-sizing: border-box;
   will-change: transform, height;
 }
@@ -338,8 +338,8 @@
   position: fixed;
   pointer-events: none;
   z-index: 50;
-  background: #e3cfc3;
-  border-left: 2px solid var(--ember);
+  background: var(--bg-selected);
+  border-left: 2px solid var(--accent);
   box-sizing: border-box;
   will-change: transform, width, height, opacity;
   border-radius: 2px;
@@ -378,7 +378,7 @@
   width: 5px;
   height: 5px;
   margin-left: auto;
-  background: #e2a04d;
+  background: var(--warn);
   border-radius: 50%;
   animation: dirty-pop var(--t-fast, 160ms) var(--ease-out);
 }
@@ -448,7 +448,7 @@
   place-items: center;
   position: fixed;
   inset: 0;
-  background: rgba(20, 21, 18, 0.65);
+  background: var(--bg-overlay);
   z-index: 100;
 }
 .command-palette {
@@ -494,8 +494,8 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: var(--ink, #20211e);
-  color: var(--paper, #f4f0e7);
+  background: var(--bg-editor);
+  color: var(--text-on-rail);
   transition: none !important;
   will-change: mask-image, -webkit-mask-image, opacity;
 }
@@ -504,17 +504,17 @@
   transform-origin: center center;
 }
 .boot-screen.is-ignited .boot-perimeter-progress {
-  stroke: var(--ember, #bd492d) !important;
-  filter: drop-shadow(0 0 6px rgba(189, 73, 45, 0.7));
+  stroke: var(--accent) !important;
+  filter: drop-shadow(0 0 6px var(--focus-ring));
   transition: stroke 160ms var(--ease-out), filter 160ms var(--ease-out) !important;
 }
 .boot-screen.is-ignited .boot-title span {
-  text-shadow: 0 0 24px rgba(229, 164, 64, 0.7), 0 0 48px rgba(189, 73, 45, 0.45);
-  color: #fff9f0 !important;
+  text-shadow: 0 0 24px var(--warn-glow), 0 0 48px var(--accent-glow);
+  color: var(--text-on-rail) !important;
   transition: text-shadow 160ms var(--ease-out), color 160ms var(--ease-out) !important;
 }
 .boot-screen.is-ignited .boot-pulse {
-  box-shadow: 0 0 14px var(--ember) !important;
+  box-shadow: 0 0 14px var(--accent) !important;
   transform: scale(1.4) !important;
   transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out) !important;
 }
@@ -528,8 +528,8 @@
   border-radius: 50%;
   transform: translate(-50%, -50%) scale(0);
   pointer-events: none;
-  border: 1.5px solid rgba(229, 164, 64, 0.65);
-  box-shadow: 0 0 32px rgba(189, 73, 45, 0.5), inset 0 0 24px rgba(229, 164, 64, 0.35);
+  border: 1.5px solid var(--warn);
+  box-shadow: 0 0 32px var(--accent-glow), inset 0 0 24px var(--warn-glow);
   opacity: 0;
   will-change: transform, opacity;
   z-index: 2;

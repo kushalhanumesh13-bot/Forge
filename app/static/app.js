@@ -842,6 +842,28 @@ function setSidebarOpen(open, triggerEl) {
   }
 }
 
+/* Theme setting binding */
+function bindThemeSetting(scope) {
+  var group = (scope || document).querySelector('.theme-seg');
+  if (!group || !window.ForgeTheme || group.__bound) return; group.__bound = true;
+  var opts = Array.prototype.slice.call(group.querySelectorAll('[data-theme-option]'));
+  var hint = document.getElementById('theme-hint');
+  function sync() {
+    var pref = ForgeTheme.get(), res = ForgeTheme.resolved();
+    opts.forEach(function (b) { var on = b.dataset.themeOption === pref; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
+    if (hint) hint.textContent = pref === 'system' ? 'Following your device. Currently ' + res + '.' : 'Always ' + pref + '.';
+  }
+  group.addEventListener('click', function (e) { var b = e.target.closest('[data-theme-option]'); if (b) ForgeTheme.set(b.dataset.themeOption); });
+  group.addEventListener('keydown', function (e) {
+    var i = opts.findIndex(function (b) { return b.getAttribute('aria-checked') === 'true'; }), n = i, k = e.key;
+    if (k === 'ArrowRight' || k === 'ArrowDown') n = (i + 1) % opts.length;
+    else if (k === 'ArrowLeft' || k === 'ArrowUp') n = (i - 1 + opts.length) % opts.length;
+    else if (k === 'Home') n = 0; else if (k === 'End') n = opts.length - 1; else return;
+    e.preventDefault(); opts[n].focus(); ForgeTheme.set(opts[n].dataset.themeOption);
+  });
+  ForgeTheme.onChange(sync); sync();
+}
+
 function openSettings() {
   const panel = $("settings-panel");
   if (!panel) return;
@@ -850,6 +872,7 @@ function openSettings() {
   const btn = document.querySelector('.rail-button[data-view="settings"]');
   if (btn) btn.classList.add("is-popup-open");
   settingsFlow?.to(1, btn);
+  bindThemeSetting(panel);
 }
 
 function closeSettings() {
@@ -1910,6 +1933,7 @@ function initialize() {
   }
 
   bindEvents();
+  bindThemeSetting();
   void loadAIProviders();
   void loadAnalysis({ initial: true });
 }

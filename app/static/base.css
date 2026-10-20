@@ -609,7 +609,7 @@ select {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
-  background: rgb(0 0 0 / 0.55);
+  background: var(--scrim);
   backdrop-filter: blur(4px);
   display: grid;
   place-items: start center;
@@ -832,15 +832,15 @@ select {
   pointer-events: none;
 }
 
-.tok-keyword { color: #83b7e8; }
-.tok-string { color: #d8b476; }
-.tok-comment { color: #607276; }
-.tok-number { color: #c999d6; }
-.tok-function { color: #8fd4a8; }
-.tok-class { color: #e8b84d; }
-.tok-constant { color: #c999d6; }
-.tok-operator { color: #87969a; }
-.tok-punctuation { color: #87969a; }
+.tok-keyword { color: var(--syn-keyword); }
+.tok-string { color: var(--syn-string); }
+.tok-comment { color: var(--syn-comment); }
+.tok-number { color: var(--syn-number); }
+.tok-function { color: var(--syn-function); }
+.tok-class { color: var(--syn-class); }
+.tok-constant { color: var(--syn-builtin); }
+.tok-operator { color: var(--syn-operator); }
+.tok-punctuation { color: var(--syn-punct); }
 
 /* ========================================
  * SKELETON LOADERS — Shape-matching
@@ -849,9 +849,9 @@ select {
 .skeleton {
   background: linear-gradient(
     90deg,
-    var(--bg-hover) 25%,
-    var(--bg-active) 50%,
-    var(--bg-hover) 75%
+    var(--skeleton-base) 25%,
+    var(--skeleton-shine) 50%,
+    var(--skeleton-base) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
