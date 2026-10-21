@@ -820,7 +820,8 @@ function setSidebarOpen(open, triggerEl) {
     $("sidebar-scrim").hidden = !compact;
     $("explorer-open").hidden = true;
 
-    sideFlow?.to(1, trigger, tgRect);
+    if (window.ForgeFlow && window.ForgeFlow.restore) window.ForgeFlow.restore(sidebar);
+    ForgePane.set(sideFlow, true, trigger);
   } else {
     // 1) FIRST LINE: take panel out of layout, still visible
     if (window.ForgeFlow && window.ForgeFlow.pullOut) {
@@ -838,7 +839,11 @@ function setSidebarOpen(open, triggerEl) {
     }
 
     // 4) animation
-    sideFlow?.to(0);
+    if (!ForgePane.set(sideFlow, false)) {
+      sidebar.classList.remove("is-open");
+      sidebar.classList.add("is-collapsed");
+      if (window.ForgeFlow && window.ForgeFlow.restore) window.ForgeFlow.restore(sidebar);
+    }
   }
 }
 
@@ -871,12 +876,12 @@ function openSettings() {
   panel.classList.add("is-open");
   const btn = document.querySelector('.rail-button[data-view="settings"]');
   if (btn) btn.classList.add("is-popup-open");
-  settingsFlow?.to(1, btn);
+  ForgePane.set(settingsFlow, true, btn);
   bindThemeSetting(panel);
 }
 
 function closeSettings() {
-  settingsFlow?.to(0);
+  ForgePane.set(settingsFlow, false);
 }
 
 function toggleSettings() {
@@ -896,11 +901,11 @@ function openKeys() {
   panel.classList.add("is-open");
   const btn = $("help");
   if (btn) btn.classList.add("is-popup-open");
-  keysFlow?.to(1, btn);
+  ForgePane.set(keysFlow, true, btn);
 }
 
 function closeKeys() {
-  keysFlow?.to(0);
+  ForgePane.set(keysFlow, false);
 }
 
 function toggleKeys() {
@@ -1323,7 +1328,7 @@ async function runCommand() {
 }
 
 function closePalette() {
-  paletteFlow?.to(0);
+  ForgePane.set(paletteFlow, false);
 }
 
 function paletteItems() {
@@ -1375,7 +1380,7 @@ function openPalette(mode = "commands") {
   renderPalette("", mode);
 
   const trigger = $("quick-open") || $("command-open") || document.body;
-  paletteFlow?.to(1, trigger);
+  ForgePane.set(paletteFlow, true, trigger);
   $("palette-input").focus();
 }
 
@@ -1392,7 +1397,7 @@ function openDock() {
     toggleSvg.style.transform = "rotate(180deg)";
   }
   const trigger = document.querySelector(".dock-bar") || $("dock-toggle");
-  dockFlow?.to(1, trigger);
+  ForgePane.set(dockFlow, true, trigger);
 }
 
 function closeDock() {
@@ -1403,7 +1408,7 @@ function closeDock() {
     toggleSvg.style.transition = "transform var(--t-fast, 160ms) var(--ease-out)";
     toggleSvg.style.transform = "rotate(0deg)";
   }
-  dockFlow?.to(0);
+  ForgePane.set(dockFlow, false);
 }
 
 function toggleDock() {
@@ -1720,6 +1725,11 @@ function initialize() {
   window.setSidebarOpen = setSidebarOpen;
   window.setView = setView;
   window.isSidebarVisible = isSidebarVisible;
+  window.openSettings = openSettings;
+  window.closeSettings = closeSettings;
+  window.openKeys = openKeys;
+  window.closeKeys = closeKeys;
+  window.getAppState = () => state;
 
   /* old animation, disconnected by motion upgrade:
   settingsMorph = MorphPanel.attach({

@@ -3,77 +3,77 @@
   color-scheme: light;
 
   /* surfaces */
-  --bg-app: #FFF1A6;
-  --bg-header: #FFF7CC;
-  --bg-rail: #6B352A;
-  --bg-panel: #FFF7CC;
-  --bg-surface: #FFF7CC;
-  --bg-raised: #FFFBE4;
-  --bg-sunken: #F8E98F;
-  --bg-editor: #FFFBEA;
-  --bg-gutter: #FFF4C2;
-  --bg-tooltip: #3A1D16;
-  --bg-overlay: #2B1611;
-  --rail-item-active-bg: #835340;
-  --bg-hover: rgba(107, 53, 42, 0.07);
-  --bg-active: rgba(107, 53, 42, 0.12);
-  --bg-selected: rgba(107, 53, 42, 0.14);
-  --bg-current-line: rgba(107, 53, 42, 0.06);
-  --scrim: rgba(43, 22, 17, 0.45);
+  --bg-app: #F8E7C9;
+  --bg-header: #FBEFD9;
+  --bg-rail: #064E3B;
+  --bg-panel: #FBF0DC;
+  --bg-surface: #FBF0DC;
+  --bg-raised: #FFF8EA;
+  --bg-sunken: #EEDBB8;
+  --bg-editor: #FDF5E4;
+  --bg-gutter: #F6E8CB;
+  --bg-tooltip: #04382B;
+  --bg-overlay: #032A20;
+  --rail-item-active-bg: #0B6650;
+  --bg-hover: rgba(6, 78, 59, 0.07);
+  --bg-active: rgba(6, 78, 59, 0.12);
+  --bg-selected: rgba(6, 78, 59, 0.14);
+  --bg-current-line: rgba(6, 78, 59, 0.06);
+  --scrim: rgba(3, 42, 32, 0.45);
 
   /* text */
-  --text: #2B1611;
-  --text-2: #5A3A30;
-  --text-muted: #7A5A4F;
-  --text-disabled: rgba(107, 53, 42, 0.45);
-  --text-on-accent: #FFF8D2;
-  --text-on-rail: #FFF1A6;
+  --text: #062A21;
+  --text-2: #1F4A3C;
+  --text-muted: #46685A;
+  --text-disabled: rgba(6, 78, 59, 0.45);
+  --text-on-accent: #F8E7C9;
+  --text-on-rail: #F8E7C9;
   --text-on-rail-muted: #E2CCA0;
-  --text-on-tooltip: #FFF1A6;
+  --text-on-tooltip: #F8E7C9;
 
   /* brand */
-  --accent: #6B352A;
-  --accent-hover: #7D4033;
-  --accent-active: #572B22;
-  --accent-subtle: rgba(107, 53, 42, 0.10);
-  --focus-ring: #6B352A;
-  --selection-bg: rgba(107, 53, 42, 0.22);
-  --link: #6B352A;
+  --accent: #064E3B;
+  --accent-hover: #0A6149;
+  --accent-active: #04382B;
+  --accent-subtle: rgba(6, 78, 59, 0.10);
+  --focus-ring: #064E3B;
+  --selection-bg: rgba(6, 78, 59, 0.22);
+  --link: #064E3B;
 
   /* lines */
-  --border-subtle: rgba(107, 53, 42, 0.14);
-  --border: rgba(107, 53, 42, 0.24);
-  --border-strong: rgba(107, 53, 42, 0.45);
-  --border-input: #8F6B5E;
+  --border-subtle: rgba(6, 78, 59, 0.14);
+  --border: rgba(6, 78, 59, 0.24);
+  --border-strong: rgba(6, 78, 59, 0.45);
+  --border-input: #5F8374;
 
   /* status */
-  --success: #2E6B3B;  --success-bg: rgba(46, 107, 59, 0.12);
+  --success: #1B6E3C;  --success-bg: rgba(27, 110, 60, 0.12);
   --warn: #8A5A00;     --warn-bg: rgba(138, 90, 0, 0.12);
   --error: #A32619;    --error-bg: rgba(163, 38, 25, 0.10);
   --info: #35567F;     --info-bg: rgba(53, 86, 127, 0.10);
-  --badge-bg: #FFF1A6; --badge-fg: #6B352A;
+  --badge-bg: #F8E7C9; --badge-fg: #064E3B;
 
-  /* diff (Review) */
-  --diff-add-bg: #E3F1D3;  --diff-add-fg: #2E6B3B;
-  --diff-del-bg: #F8D7D0;  --diff-del-fg: #A32619;
+  /* diff */
+  --diff-add-bg: #DDEBC8;  --diff-add-fg: #1B6E3C;
+  --diff-del-bg: #F6D5CB;  --diff-del-fg: #A32619;
 
   /* syntax (on --bg-editor) */
-  --syn-keyword: #9A2F1F;  --syn-string: #2F6B3A;  --syn-number: #8A5A00;
-  --syn-comment: #7D675C;  --syn-function: #5B3FA0; --syn-class: #0F6A74;
-  --syn-builtin: #A0441F;  --syn-decorator: #7A3E8E; --syn-operator: #5A3A30;
-  --syn-punct: #6F5248;    --syn-variable: #2B1611;
+  --syn-keyword: #8E2C1B;  --syn-string: #1B6E3C;  --syn-number: #8A5A00;
+  --syn-comment: #6E6A5A;  --syn-function: #4B3A9A; --syn-class: #0F6A74;
+  --syn-builtin: #9A4A12;  --syn-decorator: #7A3E8E; --syn-operator: #1F4A3C;
+  --syn-punct: #4F6B5E;    --syn-variable: #062A21;
 
-  /* shadows, scrollbars, skeleton, scroll shadow */
-  --shadow-sm: 0 1px 2px rgba(80, 40, 25, 0.12);
-  --shadow-md: 0 6px 18px rgba(80, 40, 25, 0.14);
-  --shadow-lg: 0 18px 44px rgba(80, 40, 25, 0.18);
-  --scrollbar-thumb: rgba(107, 53, 42, 0.35);
-  --scrollbar-thumb-hover: rgba(107, 53, 42, 0.55);
-  --skeleton-base: rgba(107, 53, 42, 0.08);
-  --skeleton-shine: rgba(107, 53, 42, 0.16);
-  --scroll-shadow: rgba(80, 40, 25, 0.16);
+  /* shadows, scrollbars, skeleton */
+  --shadow-sm: 0 1px 2px rgba(6, 40, 30, 0.12);
+  --shadow-md: 0 6px 18px rgba(6, 40, 30, 0.14);
+  --shadow-lg: 0 18px 44px rgba(6, 40, 30, 0.18);
+  --scrollbar-thumb: rgba(6, 78, 59, 0.35);
+  --scrollbar-thumb-hover: rgba(6, 78, 59, 0.55);
+  --skeleton-base: rgba(6, 78, 59, 0.08);
+  --skeleton-shine: rgba(6, 78, 59, 0.16);
+  --scroll-shadow: rgba(6, 40, 30, 0.16);
 
-  /* the morph engine reads this: must stay an opaque hex/rgb value */
+  /* the morph engine reads this: it must stay an opaque hex value in the end */
   --flow-accent: var(--rail-item-active-bg);
 }
 
@@ -159,3 +159,6 @@ html.theme-switching, html.theme-switching *, html.theme-switching *::before, ht
 @media (prefers-reduced-motion: reduce) {
   html.theme-switching, html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after { transition: none !important; }
 }
+
+.activity-rail :focus-visible { outline-color: var(--text-on-rail); }
+.tooltip :focus-visible { outline-color: var(--text-on-tooltip); }

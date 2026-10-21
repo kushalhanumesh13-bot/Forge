@@ -1,0 +1,161 @@
+/* Forge theme tokens. Light is the default; dark overrides. Hex/rgb/rgba/hsl only. */
+:root {
+  color-scheme: light;
+
+  /* surfaces */
+  --bg-app: #FFF1A6;
+  --bg-header: #FFF7CC;
+  --bg-rail: #6B352A;
+  --bg-panel: #FFF7CC;
+  --bg-surface: #FFF7CC;
+  --bg-raised: #FFFBE4;
+  --bg-sunken: #F8E98F;
+  --bg-editor: #FFFBEA;
+  --bg-gutter: #FFF4C2;
+  --bg-tooltip: #3A1D16;
+  --bg-overlay: #2B1611;
+  --rail-item-active-bg: #835340;
+  --bg-hover: rgba(107, 53, 42, 0.07);
+  --bg-active: rgba(107, 53, 42, 0.12);
+  --bg-selected: rgba(107, 53, 42, 0.14);
+  --bg-current-line: rgba(107, 53, 42, 0.06);
+  --scrim: rgba(43, 22, 17, 0.45);
+
+  /* text */
+  --text: #2B1611;
+  --text-2: #5A3A30;
+  --text-muted: #7A5A4F;
+  --text-disabled: rgba(107, 53, 42, 0.45);
+  --text-on-accent: #FFF8D2;
+  --text-on-rail: #FFF1A6;
+  --text-on-rail-muted: #E2CCA0;
+  --text-on-tooltip: #FFF1A6;
+
+  /* brand */
+  --accent: #6B352A;
+  --accent-hover: #7D4033;
+  --accent-active: #572B22;
+  --accent-subtle: rgba(107, 53, 42, 0.10);
+  --focus-ring: #6B352A;
+  --selection-bg: rgba(107, 53, 42, 0.22);
+  --link: #6B352A;
+
+  /* lines */
+  --border-subtle: rgba(107, 53, 42, 0.14);
+  --border: rgba(107, 53, 42, 0.24);
+  --border-strong: rgba(107, 53, 42, 0.45);
+  --border-input: #8F6B5E;
+
+  /* status */
+  --success: #2E6B3B;  --success-bg: rgba(46, 107, 59, 0.12);
+  --warn: #8A5A00;     --warn-bg: rgba(138, 90, 0, 0.12);
+  --error: #A32619;    --error-bg: rgba(163, 38, 25, 0.10);
+  --info: #35567F;     --info-bg: rgba(53, 86, 127, 0.10);
+  --badge-bg: #FFF1A6; --badge-fg: #6B352A;
+
+  /* diff (Review) */
+  --diff-add-bg: #E3F1D3;  --diff-add-fg: #2E6B3B;
+  --diff-del-bg: #F8D7D0;  --diff-del-fg: #A32619;
+
+  /* syntax (on --bg-editor) */
+  --syn-keyword: #9A2F1F;  --syn-string: #2F6B3A;  --syn-number: #8A5A00;
+  --syn-comment: #7D675C;  --syn-function: #5B3FA0; --syn-class: #0F6A74;
+  --syn-builtin: #A0441F;  --syn-decorator: #7A3E8E; --syn-operator: #5A3A30;
+  --syn-punct: #6F5248;    --syn-variable: #2B1611;
+
+  /* shadows, scrollbars, skeleton, scroll shadow */
+  --shadow-sm: 0 1px 2px rgba(80, 40, 25, 0.12);
+  --shadow-md: 0 6px 18px rgba(80, 40, 25, 0.14);
+  --shadow-lg: 0 18px 44px rgba(80, 40, 25, 0.18);
+  --scrollbar-thumb: rgba(107, 53, 42, 0.35);
+  --scrollbar-thumb-hover: rgba(107, 53, 42, 0.55);
+  --skeleton-base: rgba(107, 53, 42, 0.08);
+  --skeleton-shine: rgba(107, 53, 42, 0.16);
+  --scroll-shadow: rgba(80, 40, 25, 0.16);
+
+  /* the morph engine reads this: must stay an opaque hex/rgb value */
+  --flow-accent: var(--rail-item-active-bg);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-app: #1A0B2E;
+  --bg-header: #1F0E36;
+  --bg-rail: #120620;
+  --bg-panel: #231240;
+  --bg-surface: #231240;
+  --bg-raised: #2D1A52;
+  --bg-sunken: #140824;
+  --bg-editor: #150A26;
+  --bg-gutter: #1A0D30;
+  --bg-tooltip: #3A2260;
+  --bg-overlay: #0B0314;
+  --rail-item-active-bg: #34205C;
+  --bg-hover: rgba(255, 183, 165, 0.07);
+  --bg-active: rgba(255, 183, 165, 0.12);
+  --bg-selected: rgba(255, 183, 165, 0.16);
+  --bg-current-line: rgba(255, 183, 165, 0.06);
+  --scrim: rgba(11, 3, 20, 0.62);
+
+  --text: #F5EDF8;
+  --text-2: #D3C3E0;
+  --text-muted: #A793BD;
+  --text-disabled: rgba(245, 237, 248, 0.40);
+  --text-on-accent: #1A0B2E;
+  --text-on-rail: #F5EDF8;
+  --text-on-rail-muted: #D3C3E0;
+  --text-on-tooltip: #F5EDF8;
+
+  --accent: #FFB7A5;
+  --accent-hover: #FFC8BA;
+  --accent-active: #F59C87;
+  --accent-subtle: rgba(255, 183, 165, 0.14);
+  --focus-ring: #FFB7A5;
+  --selection-bg: rgba(255, 183, 165, 0.28);
+  --link: #FFB7A5;
+
+  --border-subtle: rgba(255, 183, 165, 0.12);
+  --border: rgba(255, 183, 165, 0.22);
+  --border-strong: rgba(255, 183, 165, 0.42);
+  --border-input: #8C74A8;
+
+  --success: #86D9A4;  --success-bg: rgba(134, 217, 164, 0.14);
+  --warn: #FFD38A;     --warn-bg: rgba(255, 211, 138, 0.14);
+  --error: #FF8F86;    --error-bg: rgba(255, 143, 134, 0.14);
+  --info: #A5C8FF;     --info-bg: rgba(165, 200, 255, 0.14);
+  --badge-bg: #FFB7A5; --badge-fg: #1A0B2E;
+
+  --diff-add-bg: #1F3A2C;  --diff-add-fg: #86D9A4;
+  --diff-del-bg: #4A1F2C;  --diff-del-fg: #FF8F86;
+
+  --syn-keyword: #FFB7A5;  --syn-string: #9FE3B5;  --syn-number: #FFD38A;
+  --syn-comment: #9582AD;  --syn-function: #C6B2FF; --syn-class: #8FE0E8;
+  --syn-builtin: #FF9E8C;  --syn-decorator: #E7A8F5; --syn-operator: #D3C3E0;
+  --syn-punct: #B7A6CC;    --syn-variable: #F5EDF8;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.50);
+  --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.60);
+  --scrollbar-thumb: rgba(255, 183, 165, 0.28);
+  --scrollbar-thumb-hover: rgba(255, 183, 165, 0.48);
+  --skeleton-base: rgba(255, 183, 165, 0.08);
+  --skeleton-shine: rgba(255, 183, 165, 0.16);
+  --scroll-shadow: rgba(0, 0, 0, 0.40);
+}
+
+/* native widgets and small global details follow the tokens */
+:root { accent-color: var(--accent); }
+body { background: var(--bg-app); color: var(--text); }
+::selection { background: var(--selection-bg); }
+* { scrollbar-color: var(--scrollbar-thumb) transparent; }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* subtle, time-limited colour crossfade while the user switches theme (see Step 9) */
+html.theme-switching, html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after {
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease,
+              fill .2s ease, stroke .2s ease, box-shadow .2s ease, outline-color .2s ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.theme-switching, html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after { transition: none !important; }
+}

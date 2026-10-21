@@ -135,9 +135,9 @@
       this.ensureSvg();
       this.ensureStatic();
       this.saved = { tg: tg, pPos: pn.style.position, pZ: pn.style.zIndex, tPos: tg.style.position, tZ: tg.style.zIndex };
-      if (!pn.style.position || pn.style.position === 'static') pn.style.position = 'relative';
+      if (getComputedStyle(pn).position === 'static') pn.style.position = 'relative';
       pn.style.zIndex = '41';
-      if (k.iconOnTop) { if (!tg.style.position || tg.style.position === 'static') tg.style.position = 'relative'; tg.style.zIndex = '42'; }
+      if (k.iconOnTop && tg) { if (getComputedStyle(tg).position === 'static') tg.style.position = 'relative'; tg.style.zIndex = '42'; }
       this.kids = Array.from(pn.children).filter((c) => !c.hasAttribute('data-ff-keep'));
       this.lastCa = -1;
       pn.classList.add('ff-active');
@@ -147,15 +147,13 @@
       if (!this.counted) { this.counted = true; FX.busyDelta(1); }
     }
     measure(tgRect) { // read positions ONCE per open/close (never inside the animation frame)
-      const k = this.knobs;
-      const t = tgRect || (this.trigger ? (this.lastTriggerRect || (this.lastTriggerRect = this.trigger.getBoundingClientRect())) : { left: 0, top: 0, width: 44, height: 49 });
-      let r;
-      if (this.lastRect && this.lastRect.width > 0) {
-        r = this.lastRect;
-      } else {
-        r = this.panel.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0) this.lastRect = r;
-      }
+      /* PATCH: finish any old CSS animation/transition on the panel or its parents, so we measure where the panel REALLY ends up */
+      const pn0 = this.panel;
+      document.getAnimations().forEach((a) => {
+        const el = a.effect && a.effect.target;
+        if (el && el.contains && el.contains(pn0) && a.effect.getComputedTiming().iterations !== Infinity) { try { a.finish(); } catch (e) {} }
+      });
+      const k = this.knobs, t = tgRect || (this.trigger ? this.trigger.getBoundingClientRect() : { left: 0, top: 0, width: 44, height: 49 }), r = pn0.getBoundingClientRect();
       const tr = this.tr ?? 0;
       const pr = this.pr ?? 0;
       this.S = outline({ x: t.left, y: t.top, w: t.width, h: t.height, r: Math.max(tr, Math.min(t.width, t.height) * 0.5) }, k.edgeN, k.cornerN);
@@ -209,6 +207,7 @@
           const wob = k.wobble * size * bump * (1 - pc * 0.5) * Math.sin(this.theta[i] * 3 + pc * 8);
           x += (rx / rl) * wob; y += (ry / rl) * wob;
         }
+        if (p < 0.98) { x = x < 0 ? 0 : x > innerWidth ? innerWidth : x; y = y < 0 ? 0 : y > innerHeight ? innerHeight : y; }
         O[i2] = x; O[i2 + 1] = y;
       }
       const b = this.box;
@@ -229,7 +228,10 @@
     to(target, trigger, tgRect) { // to(1) = open, to(0) = close. Safe to call at any moment.
       target = target ? 1 : 0;
       if (trigger && !this.live) this.trigger = trigger;
-      if (!this.live && this.p.value === target) return Promise.resolve();
+      if (!this.live && this.p.value === target) {
+        if (this.onSettle) this.onSettle(target ? 'open' : 'closed');
+        return Promise.resolve();
+      }
       if (FX.reduced()) return this.jump(target);
       const wasLive = this.live, changed = this.p.target !== target;
       this.p.target = target;

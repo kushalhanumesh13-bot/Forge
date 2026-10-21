@@ -170,10 +170,10 @@
     bottom: 0;
     left: 56px;
     width: min(340px, calc(100vw - 56px));
-    transform: translateX(-110%);
+    /* old entrance, disconnected (the morph does this now) transform: translateX(-110%); */
   }
 
-  .sidebar.is-open { transform: translateX(0); }
+  .sidebar.is-open { /* old entrance, disconnected (the morph does this now) transform: translateX(0); */ }
 }
 
 @media (max-width: 720px) {
