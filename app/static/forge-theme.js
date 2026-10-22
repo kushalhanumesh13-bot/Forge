@@ -10,6 +10,14 @@
   function getPref() { try { var s = localStorage.getItem(KEY); if (valid(s)) return s; } catch (e) {} return 'system'; }
   function systemDark() { try { return window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : false; } catch (e) { return false; } }
   function resolve(pref, sys) { if (sys === undefined) sys = systemDark(); return (pref === 'dark' || (pref === 'system' && sys)) ? 'dark' : 'light'; }
+
+  // Pre-paint theme setup to prevent unstyled flash
+  var preResolved = resolve(getPref());
+  root.setAttribute('data-theme', preResolved);
+  root.setAttribute('data-theme-pref', getPref());
+  root.style.colorScheme = preResolved;
+  root.style.backgroundColor = preResolved === 'dark' ? '#1A0B2E' : '#F8E7C9';
+
   function apply(pref, animate) {
     var resolved = resolve(pref), prev = root.getAttribute('data-theme');
     if (animate && prev !== resolved && !reduced()) {
@@ -44,4 +52,11 @@
     get: getPref, set: setPref, resolved: function () { return root.getAttribute('data-theme'); },
     systemDark: systemDark, onChange: function (fn) { listeners.push(fn); }, resolve: resolve
   };
+
+  // Optional theme audit tool loaded when requested via query param
+  if (typeof location !== 'undefined' && location.search && location.search.indexOf('themeaudit') !== -1) {
+    var auditScript = document.createElement('script');
+    auditScript.src = '/static/forge-theme-audit.js?v=2';
+    document.head.appendChild(auditScript);
+  }
 })();

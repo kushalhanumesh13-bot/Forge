@@ -7,20 +7,6 @@
   <meta name="theme-color" content="#F8E7C9">
   <title>Forge — local engineering workspace</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 20V4h12M5 12h8' fill='none' stroke='%23f4f0e7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <script>
-  (function () {
-    var p = 'system';
-    try { var s = localStorage.getItem('forge-theme'); if (s === 'light' || s === 'dark' || s === 'system') p = s; } catch (e) {}
-    var sysDark = false;
-    try { sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) {}
-    var dark = p === 'dark' || (p === 'system' && sysDark);
-    var r = document.documentElement;
-    r.setAttribute('data-theme', dark ? 'dark' : 'light');
-    r.setAttribute('data-theme-pref', p);
-    r.style.colorScheme = dark ? 'dark' : 'light';
-    r.style.backgroundColor = dark ? '#1A0B2E' : '#F8E7C9';
-  })();
-  </script>
   <script src="/static/forge-theme.js?v=3"></script>
   <link rel="stylesheet" href="/static/style.css?v=9">
   <link rel="stylesheet" href="/static/ai-settings.css?v=2">
@@ -55,6 +41,7 @@
         <button class="journey-step" type="button" data-journey="plan"><span>03</span>Plan</button>
         <button class="journey-step" type="button" data-journey="review"><span>04</span>Review</button>
         <button class="journey-step" type="button" data-journey="verify"><span>05</span>Verify</button>
+        <button class="journey-step" type="button" data-journey="conclude"><span>06</span>Conclude</button>
       </nav>
       <div class="top-actions">
         <button class="command-trigger" id="quick-open" type="button" aria-label="Open a file" title="Open a file (Ctrl+P)"><svg aria-hidden="true"><use href="#i-search"></use></svg><span>Open</span><kbd>Ctrl P</kbd></button>
@@ -103,11 +90,12 @@
     </div>
 
     <section class="bottom-dock is-collapsed" id="bottom-dock" aria-label="Verification panel">
-      <div class="dock-bar" data-ff-keep><div class="dock-title"><span>05</span><strong>Verification</strong></div><div class="dock-tabs" role="tablist" aria-label="Verification views"><button class="dock-tab" data-dock="problems" id="dock-problems-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-problems">Problems <b id="problem-count">0</b></button><button class="dock-tab" data-dock="output" id="dock-output-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-output">Diff</button><button class="dock-tab is-active" data-dock="terminal" id="dock-terminal-tab" type="button" role="tab" aria-selected="true" aria-controls="dock-terminal">Command</button><button class="dock-tab" data-dock="tests" id="dock-tests-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-tests">Results</button><button class="dock-tab" data-dock="activity" id="dock-activity-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-activity">Record <b id="activity-count">0</b></button></div><button class="icon-button quiet" id="dock-toggle" type="button" aria-expanded="true" aria-label="Collapse verification panel" title="Collapse verification panel"><svg aria-hidden="true"><use href="#i-chevron"></use></svg></button></div>
+      <div class="dock-bar" data-ff-keep><div class="dock-title"><span>05</span><strong>Verification</strong></div><div class="dock-tabs" role="tablist" aria-label="Verification views"><button class="dock-tab" data-dock="problems" id="dock-problems-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-problems">Problems <b id="problem-count">0</b></button><button class="dock-tab" data-dock="output" id="dock-output-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-output">Diff</button><button class="dock-tab is-active" data-dock="terminal" id="dock-terminal-tab" type="button" role="tab" aria-selected="true" aria-controls="dock-terminal">Command</button><button class="dock-tab" data-dock="tests" id="dock-tests-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-tests">Results</button><button class="dock-tab" data-dock="conclusion" id="dock-conclusion-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-conclusion">Conclusion</button><button class="dock-tab" data-dock="activity" id="dock-activity-tab" type="button" role="tab" aria-selected="false" aria-controls="dock-activity">Record <b id="activity-count">0</b></button></div><button class="icon-button quiet" id="dock-toggle" type="button" aria-expanded="true" aria-label="Collapse verification panel" title="Collapse verification panel"><svg aria-hidden="true"><use href="#i-chevron"></use></svg></button></div>
       <div class="dock-content" id="dock-problems" role="tabpanel" aria-labelledby="dock-problems-tab" hidden><p class="dock-empty">No problems reported by the workspace.</p></div>
       <div class="dock-content" id="dock-output" role="tabpanel" aria-labelledby="dock-output-tab" hidden><pre id="output-log">Select a changed file to inspect its real Git diff.</pre></div>
       <div class="dock-content is-active" id="dock-terminal" role="tabpanel" aria-labelledby="dock-terminal-tab"><div class="terminal-command"><span>forge /</span><input id="command" value="python -m pytest -q" aria-label="Allowed test command" spellcheck="false"><button id="run-command" type="button">Run verification</button></div><pre id="terminal-output">Ready. Forge can run the repository's allowed test command.</pre></div>
       <div class="dock-content" id="dock-tests" role="tabpanel" aria-labelledby="dock-tests-tab" hidden><div class="test-summary" id="test-summary"><p class="dock-empty">No verification has been run.</p></div></div>
+      <div class="dock-content" id="dock-conclusion" role="tabpanel" aria-labelledby="dock-conclusion-tab" hidden><div class="conclusion-panel" id="conclusion-panel"><p class="dock-empty">No conclusion yet. Complete verification to synthesize an evidence-backed conclusion.</p></div></div>
       <div class="dock-content" id="dock-activity" role="tabpanel" aria-labelledby="dock-activity-tab" hidden><div class="activity-list" id="activity"><p class="dock-empty">The local activity record is empty.</p></div></div>
     </section>
     <footer class="statusbar" role="status" aria-live="polite"><span id="status-path">Workspace / orientation</span><span id="status-meta">Preparing local evidence</span><span>Ctrl P open · Ctrl Shift P commands · Ctrl ` verify</span></footer>
@@ -186,15 +174,6 @@
   <script src="/static/forge-trace.js?v=2"></script>
   <script src="/static/forge-smooth.js?v=1"></script>
   <script src="/static/forge-bench.js?v=1"></script>
-  <script>
-  (function() {
-    if (location.search.includes('themeaudit')) {
-      var s = document.createElement('script');
-      s.src = '/static/forge-theme-audit.js?v=2';
-      document.head.appendChild(s);
-    }
-  })();
-  </script>
   <script type="module" src="/static/app.js?v=20261015-24"></script>
 </body>
 </html>

@@ -10,12 +10,27 @@ from pydantic import BaseModel, Field
 from app.services.analyzer import RepositoryAnalyzer
 from app.services.engineering_brain import EngineeringBrain
 from app.services.engineering_tools import SearchFilesRequest, SearchFilesTool
+from app.services.conclusion import WorkflowConclusionBuilder
 from app.services.repository import RepositoryService
 
 
 router = APIRouter(prefix="/api", tags=["workspace"])
 ROOT = Path.cwd().resolve()
 LOCAL_GIT = ROOT / "Git" / "cmd" / "git.exe"
+
+_active_plan: dict | None = None
+_active_verification: dict | None = None
+
+
+def _reset_workflow_state() -> None:
+    global _active_plan, _active_verification
+    _active_plan = None
+    _active_verification = None
+
+
+def _set_active_verification(data: dict) -> None:
+    global _active_verification
+    _active_verification = data
 
 
 class RepositoryRequest(BaseModel):
@@ -30,6 +45,14 @@ class FileWriteRequest(BaseModel):
 class TaskRequest(BaseModel):
     repo: str | None = None
     description: str = Field(min_length=1, max_length=4000)
+    targets: list[str] | None = None
+    scope: list[str] | None = None
+    constraints: list[str] | None = None
+
+
+class ConclusionRequest(BaseModel):
+    taskId: str | None = None
+    verification: dict | None = None
 
 
 class CommandRequest(BaseModel):
@@ -229,26 +252,45 @@ def write_file(request: FileWriteRequest):
 
 @router.post("/task/submit")
 def submit_task(request: TaskRequest):
-    plan = EngineeringBrain(_analysis()).generate_plan(request.description)
+    global _active_plan
+    task_input = {
+        "description": request.description,
+        "targets": request.targets or [],
+        "scope": request.scope or [],
+        "constraints": request.constraints or [],
+    }
+    plan = EngineeringBrain(_analysis()).generate_plan(task_input)
     task = plan["task"]
 
-    return {
+    _active_plan = {
         "taskId": "local-plan",
         "status": "complete",
         "classification": task["type"],
         "confidence": plan["confidence"],
         "plan": plan,
     }
+    return _active_plan
 
 
 @router.get("/task/plan")
-def get_task_plan(id: str):
+def get_task_plan(id: str = "local-plan"):
     if id != "local-plan":
         raise HTTPException(status_code=404, detail="Plan not found")
 
+    if _active_plan is None:
+        return {
+            "taskId": id,
+            "status": "empty",
+            "steps": [],
+        }
+
     return {
         "taskId": id,
-        "steps": [],
+        "status": _active_plan["status"],
+        "classification": _active_plan.get("classification"),
+        "confidence": _active_plan.get("confidence"),
+        "steps": _active_plan.get("plan", {}).get("steps", []),
+        "plan": _active_plan.get("plan", {}),
     }
 
 
@@ -365,11 +407,14 @@ def run_command(request: CommandRequest):
         )
 
     if os.environ.get("FORGE_TEST_COMMAND_ACTIVE") == "1":
-        return {
+        res = {
             "commandId": "local-command",
+            "command": command,
             "output": "Skipped recursive Forge test-command invocation.\n",
             "exitCode": 0,
         }
+        _set_active_verification(res)
+        return res
 
     try:
         environment = os.environ.copy()
@@ -380,7 +425,7 @@ def run_command(request: CommandRequest):
             capture_output=True,
             text=True,
             env=environment,
-            timeout=120,
+            timeout=300,
             check=False,
         )
     except subprocess.TimeoutExpired as error:
@@ -392,23 +437,68 @@ def run_command(request: CommandRequest):
         if isinstance(stderr, bytes):
             stderr = stderr.decode("utf-8", errors="replace")
 
-        return {
+        res = {
             "commandId": "local-command",
+            "command": command,
             "output": (
                 stdout
                 + stderr
-                + "\nTest command timed out after 120 seconds."
+                + "\nTest command timed out after 300 seconds."
             ),
             "exitCode": 124,
         }
+        _set_active_verification(res)
+        return res
     except OSError as error:
         raise HTTPException(
             status_code=500,
             detail="Unable to start the test command",
         ) from error
 
-    return {
+    res = {
         "commandId": "local-command",
+        "command": command,
         "output": completed.stdout + completed.stderr,
         "exitCode": completed.returncode,
     }
+    _set_active_verification(res)
+    return res
+
+
+def _build_conclusion(request: ConclusionRequest | None = None) -> dict:
+    changes_resp = list_changes()
+    changes = changes_resp.get("changes", [])
+
+    diffs: dict[str, str] = {}
+    for change in changes:
+        path = change.get("path")
+        if path:
+            try:
+                diff_res = get_change_diff(path)
+                diffs[path] = diff_res.get("diff", "")
+            except Exception:
+                diffs[path] = ""
+
+    verification = None
+    if request and request.verification:
+        verification = request.verification
+    elif _active_verification:
+        verification = _active_verification
+
+    builder = WorkflowConclusionBuilder(
+        plan=_active_plan,
+        changes=changes,
+        diffs=diffs,
+        verification=verification,
+    )
+    return builder.build()
+
+
+@router.get("/conclusion")
+def get_conclusion():
+    return _build_conclusion(None)
+
+
+@router.post("/conclusion")
+def create_conclusion(request: ConclusionRequest | None = None):
+    return _build_conclusion(request)

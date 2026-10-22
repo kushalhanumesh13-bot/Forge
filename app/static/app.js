@@ -1229,8 +1229,8 @@ function renderPlan(result) {
   $("plan").innerHTML = `<div class="plan-summary"><div class="plan-title">${esc(plan.objective || task.description || "No objective returned")}</div><div class="plan-badges"><span class="badge">${esc((task.type || result.classification || "unknown").replaceAll("_", " "))}</span><span class="confidence">${esc(confidence)} confidence</span><span class="plan-state">Plan only</span></div></div>
     <div class="evidence"><div><strong>${Number(plan.affected_files?.length || 0)}</strong><span>affected files</span></div><div><strong>${Number(impact.dependents?.length || 0)}</strong><span>dependents</span></div><div><strong>${Number(tests.existing_tests?.length || 0)}</strong><span>related tests</span></div><div><strong>${Number(risks.length)}</strong><span>risks</span></div></div>
     ${ambiguity.needs_clarification ? `<div class="callout"><strong>CLARIFICATION NEEDED</strong><span>${esc((ambiguity.questions || []).join(" "))}</span></div>` : ""}
-    <p class="section-label">IMPLEMENTATION PATH</p><ol class="plan-steps">${steps.map((step, index) => `<li class="plan-step"><span class="step-num">${String(step.order || index + 1).padStart(2, "0")}</span><div><div class="step-text">${esc(step.description || step.action || step)}</div>${step.targets?.length ? `<div class="step-files">${step.targets.map(esc).join(" · ")}</div>` : ""}${step.depends_on?.length ? `<div class="step-dependency">Depends on step ${step.depends_on.join(", ")}</div>` : ""}</div></li>`).join("") || '<li class="plan-step"><span class="step-num">—</span><div class="step-text">No steps were returned.</div></li>'}</ol>
-    ${affectedSymbols.length ? `<p class="section-label">RELEVANT SYMBOLS</p><div class="chip-list">${affectedSymbols.map((symbol) => `<span class="chip">${esc(symbol.name || symbol)} <small>${esc(symbol.file || "")}${symbol.line ? `:${Number(symbol.line)}` : ""}</small></span>`).join("")}</div>` : ""}
+    <p class="section-label">IMPLEMENTATION PATH</p><ol class="plan-steps">${steps.map((step, index) => `<li class="plan-step"><span class="step-num">${String(step.order || index + 1).padStart(2, "0")}</span><div><div class="step-text">${esc(step.description || step.action || step)}</div>${step.targets?.length ? `<div class="step-files">${step.targets.map(t => `<button type="button" class="plan-file-link" data-path="${esc(t)}">${esc(t)}</button>`).join(" · ")}</div>` : ""}${step.depends_on?.length ? `<div class="step-dependency">Depends on step ${step.depends_on.join(", ")}</div>` : ""}</div></li>`).join("") || '<li class="plan-step"><span class="step-num">—</span><div class="step-text">No steps were returned.</div></li>'}</ol>
+    ${affectedSymbols.length ? `<p class="section-label">RELEVANT SYMBOLS</p><div class="chip-list">${affectedSymbols.map((symbol) => `<span class="chip plan-file-link" data-path="${esc(symbol.file || "")}">${esc(symbol.name || symbol)} <small>${esc(symbol.file || "")}${symbol.line ? `:${Number(symbol.line)}` : ""}</small></span>`).join("")}</div>` : ""}
     ${risks.length ? `<p class="section-label">RISKS</p><div class="risk-list">${risks.map((risk) => `<div class="risk"><strong>${esc(String(risk.type || "risk").replaceAll("_", " "))}</strong><span>${esc(risk.description || risk)}</span></div>`).join("")}</div>` : ""}
     <p class="section-label">VERIFY</p><div class="step-files">${(tests.proposed_tests || []).map(esc).join("<br>") || "No verification strategy was returned."}</div>`;
   $("task-list").innerHTML = `<div class="task-brief"><strong>${esc(plan.objective || task.description || "Current engineering task")}</strong><span>${steps.length} planned step${steps.length === 1 ? "" : "s"} · ${esc(confidence)} confidence</span><button type="button" id="task-open-plan">Open decision thread</button></div>`;
@@ -1238,6 +1238,12 @@ function renderPlan(result) {
     $("context-panel").classList.remove("is-minimized");
     $("workbench").classList.remove("context-is-minimized");
     $("task").focus();
+  });
+  $$(".plan-file-link").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const p = btn.dataset.path;
+      if (p) void openFile(p);
+    });
   });
 }
 
@@ -1317,6 +1323,7 @@ async function runCommand() {
     addActivity(result.exitCode === 0 ? "Verification passed" : "Verification failed", result.exitCode === 0 ? "✓" : "!");
     toast(result.exitCode === 0 ? "Verification passed" : "Verification reported a failure", result.exitCode === 0 ? "success" : "error");
     setDock("tests");
+    void fetchConclusion();
   } catch (error) {
     setStatus("Verification unavailable", false, true);
     $("terminal-output").textContent = error.message;
@@ -1325,6 +1332,46 @@ async function runCommand() {
   } finally {
     $("run-command").disabled = false;
   }
+}
+
+async function fetchConclusion() {
+  try {
+    const conclusion = await api("/api/conclusion");
+    renderConclusion(conclusion);
+  } catch (error) {
+    const el = $("conclusion-panel");
+    if (el) el.innerHTML = `<p class="dock-empty">Unable to generate conclusion: ${esc(error.message)}</p>`;
+  }
+}
+
+function renderConclusion(conclusion) {
+  const el = $("conclusion-panel");
+  if (!el) return;
+  if (!conclusion) {
+    el.innerHTML = '<p class="dock-empty">No conclusion yet. Complete verification to synthesize an evidence-backed conclusion.</p>';
+    return;
+  }
+
+  const verdict = conclusion.verdict || "UNKNOWN";
+  const verdictLabel = verdict.replaceAll("_", " ");
+  const task = conclusion.task;
+  const changes = conclusion.changes || {};
+  const verification = conclusion.verification;
+
+  el.innerHTML = `<div class="conclusion-summary">
+    <div class="conclusion-header">
+      <span class="badge">${esc(verdictLabel)}</span>
+      <span class="confidence">${conclusion.is_verified ? "Verified against tests" : "Awaiting verification"}</span>
+    </div>
+    <p class="section-label">EVIDENCE-BACKED CONCLUSION</p>
+    <div class="callout"><strong>SYNTHESIS</strong><span>${esc(conclusion.summary || "No conclusion narrative.")}</span></div>
+    <div class="evidence">
+      <div><strong>${task ? Number(task.steps_count || 0) : 0}</strong><span>planned steps</span></div>
+      <div><strong>${Number(changes.total_files || 0)}</strong><span>files modified</span></div>
+      <div><strong>${verification ? Number(verification.passed || 0) : 0}</strong><span>tests passed</span></div>
+      <div><strong>${verification ? Number(verification.failed || 0) : 0}</strong><span>tests failed</span></div>
+    </div>
+  </div>`;
 }
 
 function closePalette() {
@@ -1440,7 +1487,8 @@ function activateJourney(name) {
     return;
   }
   if (name === "review") { setView("changes"); setDock("output"); return; }
-  if (name === "verify") { setDock("terminal"); $("command").focus(); }
+  if (name === "verify") { setDock("terminal"); $("command").focus(); return; }
+  if (name === "conclude") { setDock("conclusion"); void fetchConclusion(); return; }
 }
 
 function toggleFind(show) {

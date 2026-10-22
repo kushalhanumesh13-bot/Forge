@@ -428,10 +428,13 @@ class TestFrontendSecurityReview:
         for handler in ["onclick=", "onload=", "onerror=", "onmouseover=", "onfocus="]:
             assert handler not in content.lower()
 
-        # No inline scripts (scripts are external)
-        script_count = content.count("<script")
-        # Should only have the one external script tag
-        assert script_count == 1
+        # No inline scripts: all script tags must be external (have src attribute) with no inline body
+        import re
+        script_tags = re.findall(r"<script\b([^>]*)>(.*?)</script>", content, re.DOTALL | re.IGNORECASE)
+        assert len(script_tags) > 0, "Expected external script tags in index.html"
+        for attrs, body in script_tags:
+            assert 'src="' in attrs or "src='" in attrs, f"Script tag has no src attribute: <script {attrs}>"
+            assert not body.strip(), f"Script tag contains inline code: {body[:100]}"
 
     def test_html_has_accessibility_attributes(self):
         """Check for basic accessibility attributes"""
