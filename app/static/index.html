@@ -10,6 +10,7 @@
   <script src="/static/forge-theme.js?v=3"></script>
   <link rel="stylesheet" href="/static/style.css?v=9">
   <link rel="stylesheet" href="/static/ai-settings.css?v=2">
+  <link rel="stylesheet" href="/static/welcome.css?v=1">
   <link rel="stylesheet" href="/static/motion/motion.css?v=20261015-1">
   <link rel="stylesheet" href="/static/forge-motion.css?v=6">
   <link rel="stylesheet" href="/static/theme.css?v=2">
@@ -31,6 +32,56 @@
     <p class="boot-note">A local engineering workspace</p>
   </div>
 
+  <!-- Welcome Center - Entry state when no workspace is selected -->
+  <div class="welcome-center" id="welcome-center" hidden aria-hidden="true" role="main">
+    <header class="welcome-header">
+      <div class="welcome-brand">
+        <svg class="brand-mark" aria-hidden="true"><use href="#i-forge"></use></svg>
+        <span class="brand-word">Forge</span>
+      </div>
+    </header>
+
+    <main class="welcome-main">
+      <section class="welcome-hero">
+        <h1>Welcome to Forge</h1>
+        <p class="welcome-tagline">Local-first engineering workspace</p>
+      </section>
+
+      <section class="welcome-actions">
+        <button class="btn btn-primary" id="welcome-open-folder" type="button">
+          <svg aria-hidden="true"><use href="#i-folder"></use></svg>
+          <span>Open Folder</span>
+          <kbd>Ctrl+O</kbd>
+        </button>
+
+        <div class="welcome-divider"><span>or</span></div>
+
+        <!-- Continue Working (conditional) -->
+        <button class="btn btn-secondary" id="welcome-continue" type="button" hidden>
+          <svg aria-hidden="true"><use href="#i-arrow"></use></svg>
+          <div>
+            <strong>Continue Working</strong>
+            <span id="continue-path"></span>
+          </div>
+        </button>
+      </section>
+
+      <!-- Recent Workspaces (conditional) -->
+      <section class="welcome-recent" id="welcome-recent" hidden>
+        <div class="recent-header">
+          <h2>Recent Workspaces</h2>
+          <button class="btn btn-ghost" id="welcome-clear-recent" type="button">Clear</button>
+        </div>
+        <ul class="recent-list" id="recent-list" role="list"></ul>
+        <p class="recent-empty" id="recent-empty" hidden>No recent workspaces yet.</p>
+      </section>
+    </main>
+
+    <footer class="welcome-footer">
+      <span id="welcome-version">Version 0.1.0</span>
+    </footer>
+  </div>
+
   <div class="forge-app" id="forge-app" aria-busy="true">
     <header class="topbar" role="banner">
       <button class="brand" id="home" type="button" aria-label="Return to workspace overview"><span class="brand-mark" aria-hidden="true"><svg><use href="#i-forge"></use></svg></span><span class="brand-word">Forge</span></button>
@@ -43,6 +94,19 @@
         <button class="journey-step" type="button" data-journey="verify"><span>05</span>Verify</button>
         <button class="journey-step" type="button" data-journey="conclude"><span>06</span>Conclude</button>
       </nav>
+
+      <!-- Workspace indicator (shown when a workspace is active) -->
+      <div class="workspace-indicator" id="workspace-indicator" hidden aria-label="Active workspace">
+        <svg aria-hidden="true"><use href="#i-folder"></use></svg>
+        <span id="workspace-name"></span>
+        <button class="icon-button" id="workspace-switch" type="button" aria-label="Switch workspace" title="Switch workspace">
+          <svg aria-hidden="true"><use href="#i-folder"></use></svg>
+        </button>
+        <button class="icon-button" id="workspace-welcome" type="button" aria-label="Return to Welcome" title="Return to Welcome">
+          <svg aria-hidden="true"><use href="#i-home"></use></svg>
+        </button>
+      </div>
+
       <div class="top-actions">
         <button class="command-trigger" id="quick-open" type="button" aria-label="Open a file" title="Open a file (Ctrl+P)"><svg aria-hidden="true"><use href="#i-search"></use></svg><span>Open</span><kbd>Ctrl P</kbd></button>
         <button class="icon-button" id="command-open" type="button" aria-label="Open command palette" title="Command palette (Ctrl+Shift+P)"><svg aria-hidden="true"><use href="#i-command"></use></svg></button>
@@ -174,6 +238,6 @@
   <script src="/static/forge-trace.js?v=2"></script>
   <script src="/static/forge-smooth.js?v=1"></script>
   <script src="/static/forge-bench.js?v=1"></script>
-  <script type="module" src="/static/app.js?v=20261015-24"></script>
+  <script type="module" src="/static/app.js?v=20261025-1"></script>
 </body>
 </html>

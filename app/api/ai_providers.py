@@ -10,12 +10,19 @@ from app.services.ai_provider import (
     test_connection,
     validate_config,
 )
-from app.api.workspace import ROOT
+from app.services.workspace_manager import get_workspace_manager
 
 
 router = APIRouter(prefix="/api/ai/providers", tags=["ai-providers"])
-store = ProviderConfigStore(ROOT)
 _LOCAL_CLIENTS = {"127.0.0.1", "::1", "localhost", "testclient"}
+
+# Global store for default workspace (backward compat for tests)
+store = ProviderConfigStore(get_workspace_manager().current_root)
+
+
+def _get_store() -> ProviderConfigStore:
+    # For tests, allow monkey-patching store
+    return store
 
 
 class ProviderConfigRequest(BaseModel):
@@ -36,7 +43,7 @@ def _require_local(request: Request) -> None:
 
 def _read_config():
     try:
-        return store.load()
+        return _get_store().load()
     except ProviderConfigurationError as error:
         raise HTTPException(status_code=500, detail=str(error)) from error
 
@@ -69,7 +76,7 @@ def save_provider_config(request: Request, payload: ProviderConfigRequest):
             payload.endpoint,
             api_key,
         )
-        store.save(config)
+        _get_store().save(config)
     except ProviderConfigurationError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except OSError as error:
@@ -85,7 +92,7 @@ def save_provider_config(request: Request, payload: ProviderConfigRequest):
 def remove_provider_config(request: Request):
     _require_local(request)
     try:
-        removed = store.remove()
+        removed = _get_store().remove()
     except OSError as error:
         raise HTTPException(
             status_code=500,

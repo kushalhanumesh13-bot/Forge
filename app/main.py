@@ -1,10 +1,14 @@
 from app.api import ai_providers, repository, workspace
+from app.services.workspace_manager import get_workspace_manager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 
 app = FastAPI(title="Forge", version="0.1.0")
+
+# Initialize workspace manager at startup
+get_workspace_manager()
 
 app.include_router(repository.router)
 app.include_router(workspace.router)

@@ -12,11 +12,16 @@ from app.services.engineering_brain import EngineeringBrain
 from app.services.engineering_tools import SearchFilesRequest, SearchFilesTool
 from app.services.conclusion import WorkflowConclusionBuilder
 from app.services.repository import RepositoryService
+from app.services.workspace_manager import get_workspace_manager
 
 
 router = APIRouter(prefix="/api", tags=["workspace"])
-ROOT = Path.cwd().resolve()
-LOCAL_GIT = ROOT / "Git" / "cmd" / "git.exe"
+
+# Use WorkspaceManager instead of global ROOT
+def _get_root() -> Path:
+    return get_workspace_manager().current_root
+
+LOCAL_GIT = Path.cwd().resolve() / "Git" / "cmd" / "git.exe"
 
 _active_plan: dict | None = None
 _active_verification: dict | None = None
@@ -137,8 +142,9 @@ def _workspace_path(relative_path: str) -> Path:
             detail="Path must not end with a dot, space, or control character",
         )
 
-    candidate = ROOT / supplied
-    current = ROOT
+    root = _get_root()
+    candidate = root / supplied
+    current = root
 
     for part in supplied.parts:
         if part in ("", "."):
@@ -159,7 +165,7 @@ def _workspace_path(relative_path: str) -> Path:
             detail="Invalid workspace path",
         ) from error
 
-    if candidate != ROOT and ROOT not in candidate.parents:
+    if candidate != root and root not in candidate.parents:
         raise HTTPException(
             status_code=400,
             detail="Path must stay inside the workspace",
@@ -178,7 +184,7 @@ def _git_executable() -> str:
 
 
 def _analysis() -> dict:
-    return RepositoryAnalyzer(RepositoryService(ROOT)).analyze()
+    return RepositoryAnalyzer(RepositoryService(_get_root())).analyze()
 
 
 @router.post("/repository/analyze")
@@ -192,10 +198,11 @@ def analyze_workspace(request: RepositoryRequest):
                 detail="Invalid repository path",
             ) from error
 
-        if requested_root != ROOT:
+        current_root = _get_root()
+        if requested_root != current_root:
             raise HTTPException(
                 status_code=400,
-                detail="This workspace is fixed to the running Forge project",
+                detail="Workspace root does not match selected workspace",
             )
 
     return _analysis()
@@ -298,7 +305,7 @@ def get_task_plan(id: str = "local-plan"):
 def search_workspace(request: SearchRequest):
     result = SearchFilesTool().execute(
         SearchFilesRequest(
-            repository_root=ROOT,
+            repository_root=_get_root(),
             query=request.query,
         )
     )
@@ -317,9 +324,10 @@ def search_workspace(request: SearchRequest):
 @router.get("/changes")
 def list_changes():
     git = _git_executable()
+    root = _get_root()
     try:
         completed = subprocess.run(
-            [git, "-C", str(ROOT), "status", "--short"],
+            [git, "-C", str(root), "status", "--short"],
             capture_output=True,
             text=True,
             timeout=15,
@@ -355,13 +363,14 @@ def list_changes():
 def get_change_diff(path: str):
     _workspace_path(path)
     git = _git_executable()
+    root = _get_root()
 
     try:
         completed = subprocess.run(
             [
                 git,
                 "-C",
-                str(ROOT),
+                str(root),
                 "diff",
                 "--no-ext-diff",
                 "--",
@@ -421,7 +430,7 @@ def run_command(request: CommandRequest):
         environment["FORGE_TEST_COMMAND_ACTIVE"] = "1"
         completed = subprocess.run(
             [sys.executable, "-m", "pytest", "-q"],
-            cwd=ROOT,
+            cwd=_get_root(),
             capture_output=True,
             text=True,
             env=environment,
@@ -502,3 +511,70 @@ def get_conclusion():
 @router.post("/conclusion")
 def create_conclusion(request: ConclusionRequest | None = None):
     return _build_conclusion(request)
+
+
+# ============================================================
+# Workspace Selection Endpoints
+# ============================================================
+
+class WorkspaceSelectRequest(BaseModel):
+    path: str
+
+
+class WorkspaceSelectResponse(BaseModel):
+    root: str
+    name: str
+    isDefault: bool
+
+
+@router.post("/workspace/select", response_model=WorkspaceSelectResponse)
+def select_workspace(request: WorkspaceSelectRequest):
+    """Select a new workspace root."""
+    try:
+        path = Path(request.path).resolve()
+    except (TypeError, ValueError, OSError, RuntimeError) as error:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid workspace path",
+        ) from error
+
+    manager = get_workspace_manager()
+    canonical = manager.validate_workspace_path(path)
+    manager.set_workspace(canonical)
+
+    # Reset workflow state on workspace change
+    _reset_workflow_state()
+
+    return WorkspaceSelectResponse(
+        root=str(canonical),
+        name=canonical.name or "Workspace",
+        isDefault=False,
+    )
+
+
+@router.get("/workspace/current", response_model=WorkspaceSelectResponse)
+def get_current_workspace():
+    """Get the current workspace info."""
+    manager = get_workspace_manager()
+    info = manager.get_workspace_info()
+    return WorkspaceSelectResponse(
+        root=info["root"],
+        name=info["name"],
+        isDefault=info["isDefault"],
+    )
+
+
+@router.post("/workspace/reset", response_model=WorkspaceSelectResponse)
+def reset_workspace():
+    """Reset to the default workspace (Forge source)."""
+    manager = get_workspace_manager()
+    root = manager.reset_to_default()
+
+    # Reset workflow state on workspace change
+    _reset_workflow_state()
+
+    return WorkspaceSelectResponse(
+        root=str(root),
+        name=root.name or "Workspace",
+        isDefault=True,
+    )

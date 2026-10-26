@@ -43,6 +43,15 @@ const state = {
   transitioning: false,
   resizingSidebar: false,
   ai: { providers: [], config: null },
+
+  // Welcome Center state
+  appState: "welcome",           // "welcome" | "loading" | "ide" | "error"
+  welcomeData: {
+    recentWorkspaces: [],        // [{ id, name, path, lastOpened, lastFile }]
+    continueWorkspace: null,     // Valid previous session or null
+  },
+  workspaceLoading: false,
+  workspaceError: null,
 };
 
 const $ = (id) => document.getElementById(id);
